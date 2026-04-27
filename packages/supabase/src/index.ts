@@ -1,35 +1,41 @@
-// @repo/supabase — shared Supabase client utilities
+// @repo/supabase — shared Supabase client utilities for Paratus Group.
 //
-// Prefer specific imports for tree-shaking:
+// Prefer specific imports for tree-shaking + clear server/client boundaries:
 //   import { createClient } from '@repo/supabase/client'
 //   import { createClient } from '@repo/supabase/server'
-//   import { createAuthMiddleware } from '@repo/supabase/middleware'
 //   import { createAdminClient } from '@repo/supabase/admin'
-//   import type { AppRole, UserWithRole } from '@repo/supabase/types'
-//   import { getCallbackQueue } from '@repo/supabase/dal'
-//   import { UpdateCallbackSchema } from '@repo/supabase/schemas'
+//   import { getCurrentUserClaims } from '@repo/supabase/dal'
+//   import { loginSchema } from '@repo/supabase/schemas'
+//   import {
+//     ACTIVE_COUNTRY_CODES,
+//     isActiveCountrySlug,
+//     type AppRole,
+//     type UserClaims,
+//   } from '@repo/supabase/types'
+//
+// The barrel below only re-exports things that are safe in BOTH client and
+// server contexts (pure types + the browser client factory). server, admin,
+// dal, and schemas all import 'server-only' and must NOT be re-exported here.
 
 export { createClient as createBrowserClient } from './client.js';
-export { createAuthMiddleware, matcherConfig, AUTH_EXCLUDED_PATHS } from './middleware.js';
-export type {
-  AppRole,
-  UserWithRole,
-  AppJwtClaims,
-  Database,
-  CallbackStatus,
-  CallbackQueueRow,
-  ChatSessionRow,
-  ChatMessage,
-  Channel,
-  OutageStatus,
-  OutageSeverity,
-  OutageRow,
+
+export {
+  APP_ROLES,
+  ACTIVE_COUNTRY_CODES,
+  COMING_SOON_COUNTRY_CODES,
+  ALL_COUNTRY_CODES,
+  isActiveCountrySlug,
+  isCountrySlug,
+  countryCodeToSlug,
+  slugToCountryCode,
 } from './types/index.js';
 
-// Note: server, admin, dal, and schemas are NOT re-exported here because they
-// import 'server-only' which would break client-side imports of this barrel.
-// Import them directly:
-//   import { createClient } from '@repo/supabase/server'
-//   import { createAdminClient } from '@repo/supabase/admin'
-//   import { getCallbackQueue } from '@repo/supabase/dal'
-//   import { UpdateCallbackSchema } from '@repo/supabase/schemas'
+export type {
+  AppRole,
+  ActiveCountryCode,
+  ComingSoonCountryCode,
+  CountryCode,
+  CountrySlug,
+  UserClaims,
+  UserRoleRow,
+} from './types/index.js';

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@repo/ui";
+import { DashboardLayout, type DashboardUser } from "@repo/ui";
 import { salesRepNav } from "@/app/_lib/nav";
 
 interface SalesRepShellProps {
@@ -10,6 +10,7 @@ interface SalesRepShellProps {
   title: string;
   subtitle?: string;
   currentPath?: string;
+  user?: DashboardUser;
 }
 
 export function SalesRepShell({
@@ -19,6 +20,7 @@ export function SalesRepShell({
   title,
   subtitle,
   currentPath,
+  user,
 }: SalesRepShellProps) {
   return (
     <DashboardLayout
@@ -28,6 +30,8 @@ export function SalesRepShell({
       currentPath={currentPath}
       title={title}
       subtitle={subtitle}
+      user={user}
+      signOutHref="/api/auth/logout"
     >
       {children}
     </DashboardLayout>

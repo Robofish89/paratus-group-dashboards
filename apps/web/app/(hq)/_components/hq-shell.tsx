@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@repo/ui";
+import { DashboardLayout, type DashboardUser } from "@repo/ui";
 import { hqNav } from "@/app/_lib/nav";
 
 interface HQShellProps {
@@ -8,6 +8,7 @@ interface HQShellProps {
   title: string;
   subtitle?: string;
   currentPath?: string;
+  user?: DashboardUser;
 }
 
 export function HQShell({
@@ -15,6 +16,7 @@ export function HQShell({
   title,
   subtitle,
   currentPath,
+  user,
 }: HQShellProps) {
   return (
     <DashboardLayout
@@ -24,6 +26,8 @@ export function HQShell({
       currentPath={currentPath}
       title={title}
       subtitle={subtitle}
+      user={user}
+      signOutHref="/api/auth/logout"
     >
       {children}
     </DashboardLayout>

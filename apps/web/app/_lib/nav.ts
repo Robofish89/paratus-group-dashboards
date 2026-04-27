@@ -11,13 +11,14 @@ import {
 } from "lucide-react";
 
 /**
- * HQ Overview navigation — group-wide surface.
+ * HQ Overview navigation — group-wide surface. HQ index lives at `/` so the
+ * route group `(hq)` resolves naturally without a path prefix.
  */
 export const hqNav: NavItem[] = [
-  { label: "Overview", href: "/hq", icon: LayoutDashboard },
-  { label: "Countries", href: "/hq/countries", icon: UsersRound },
-  { label: "Service Mix", href: "/hq/service-mix", icon: Layers },
-  { label: "Settings", href: "/hq/settings", icon: Settings },
+  { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "Countries", href: "/countries", icon: UsersRound },
+  { label: "Service Mix", href: "/service-mix", icon: Layers },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 /**

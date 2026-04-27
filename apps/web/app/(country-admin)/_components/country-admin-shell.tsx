@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@repo/ui";
+import { DashboardLayout, type DashboardUser } from "@repo/ui";
 import { countryAdminNav } from "@/app/_lib/nav";
 
 interface CountryAdminShellProps {
@@ -10,6 +10,7 @@ interface CountryAdminShellProps {
   title: string;
   subtitle?: string;
   currentPath?: string;
+  user?: DashboardUser;
 }
 
 export function CountryAdminShell({
@@ -19,6 +20,7 @@ export function CountryAdminShell({
   title,
   subtitle,
   currentPath,
+  user,
 }: CountryAdminShellProps) {
   return (
     <DashboardLayout
@@ -28,6 +30,8 @@ export function CountryAdminShell({
       currentPath={currentPath}
       title={title}
       subtitle={subtitle}
+      user={user}
+      signOutHref="/api/auth/logout"
     >
       {children}
     </DashboardLayout>

@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { SectionCard } from "@repo/ui";
 import { countryName, isActiveCountry } from "@/app/_lib/countries";
+import {
+  dashboardUserFor,
+  requireCountry,
+  requireRole,
+} from "@/app/_lib/auth";
 import { SalesRepShell } from "../../_components/sales-rep-shell";
 
 export default async function SalesRepQueuePage({
@@ -14,6 +19,9 @@ export default async function SalesRepQueuePage({
     notFound();
   }
 
+  const { user, claims } = await requireRole(["agent", "hq_admin"]);
+  requireCountry(country, claims);
+
   const name = countryName(country);
 
   return (
@@ -23,6 +31,7 @@ export default async function SalesRepQueuePage({
       currentPath={`/${country}/queue`}
       title="My Queue"
       subtitle={name}
+      user={dashboardUserFor(user, claims)}
     >
       <SectionCard
         title="Phase 1 placeholder"

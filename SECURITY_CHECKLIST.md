@@ -4,12 +4,17 @@ Multi-tenant system across 13 countries. RLS misconfiguration = cross-country da
 
 ## Auth & RLS — current state (Plan 01-02)
 
-- Migration `packages/supabase/migrations/00001_rbac_schema.sql` defines:
+- Migration `packages/supabase/migrations/00001_rbac_schema.sql` is **applied to the live Paratus Group Supabase project**:
   - `app_role` enum (`hq_admin`, `country_admin`, `agent`)
   - `country_code` enum (12 active + 3 coming-soon ISO 3166-1 alpha-2 codes)
   - `user_roles` table with RLS enabled and three policies (HQ read all, users read own, HQ manage all)
   - `custom_access_token_hook(event)` — injects `user_role`, `country_code`, `user_active` into every JWT
-- **Manual step required after applying the migration:** enable the Custom Access Token Hook in Supabase Dashboard → Authentication → Hooks. Without this, JWT claims are missing and middleware will keep every user on `/unauthorized`.
+- The Custom Access Token Hook is **enabled** in the dashboard (Authentication → Hooks). JWTs issued by Supabase Auth now include the three claims every middleware / RLS policy depends on.
+- Three test users (one per role) seeded with role rows — see `CREDENTIALS.md` for the Gmail `+` aliases.
+- **Auth gate (middleware):** every non-public path is gated by `apps/web/middleware.ts`. The middleware calls `supabase.auth.getUser()` (re-validates against Supabase — `getSession()` is unsafe alone), then decodes the access token to read `user_role` + `country_code` for routing. Public paths: `/login`, `/unauthorized`, `/auth/callback`, `/api/health`.
+- **Defense-in-depth:** route group layouts (`(hq)`, `(country-admin)/[country]`, `(sales-rep)/[country]/queue`) call `requireRole` and `requireCountry` from `apps/web/app/_lib/auth.ts`. A future middleware mis-config cannot leak data into a layout.
+- **Open-redirect protection:** the login Server Action only honours `redirectTo` values that start with `/` and not `//`. The `/auth/callback` handler applies the same guard to its `next` param.
+- **Logout:** `POST /api/auth/logout` only — GET-based logout endpoints are CSRF-vulnerable. Sidebar renders the control as a real `<form method="POST">` so it works without JS.
 - Cross-country leakage tests are deferred to Phase 2, when leads/lead_events/callbacks tables (the actual tenant-scoped data) ship. The pattern Phase 2 RLS will use is `(auth.jwt() ->> 'country_code') = <table>.country_code` plus `(auth.jwt() ->> 'user_role') = 'hq_admin'` for HQ override.
 - DAL helpers (`packages/supabase/src/dal/users.ts`) import `server-only`. The service-role client is used in exactly one place — `getUserRoleRow()` during the login Server Action, scoped by `user_id` — and the rationale is documented inline.
 - Authorization always reads from JWT claims set by the hook, never from `auth.users.raw_user_meta_data` (that's user-controlled and unsafe).

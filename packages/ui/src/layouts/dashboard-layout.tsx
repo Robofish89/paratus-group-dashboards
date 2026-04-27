@@ -30,6 +30,12 @@ interface DashboardLayoutProps {
   className?: string;
   onSignOut?: () => void;
   /**
+   * Path to POST a sign-out request to. When provided, renders the sign-out
+   * control as a real form (works without JS) and ignores `onSignOut`. Used by
+   * server-rendered shells that don't have access to a client-side callback.
+   */
+  signOutHref?: string;
+  /**
    * Override the active-route detection. Useful for server components that
    * cannot use `usePathname`. When omitted, falls back to the client pathname.
    */
@@ -55,6 +61,7 @@ function DashboardLayout({
   user,
   className,
   onSignOut,
+  signOutHref,
   currentPath,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
@@ -133,7 +140,17 @@ function DashboardLayout({
                 </div>
               </div>
             </div>
-            {onSignOut && (
+            {signOutHref ? (
+              <form action={signOutHref} method="POST">
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 text-[12px] text-[#64748b] hover:text-[#94a3b8] transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              </form>
+            ) : onSignOut ? (
               <button
                 onClick={onSignOut}
                 className="flex items-center gap-2 text-[12px] text-[#64748b] hover:text-[#94a3b8] transition-colors cursor-pointer"
@@ -141,7 +158,7 @@ function DashboardLayout({
                 <LogOut className="w-3.5 h-3.5" />
                 Sign out
               </button>
-            )}
+            ) : null}
           </div>
         )}
       </aside>

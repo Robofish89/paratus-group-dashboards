@@ -17,6 +17,10 @@ const PUBLIC_PATHS = new Set<string>([
   "/unauthorized",
   "/auth/callback",
   "/api/health",
+  // Logout must short-circuit role-routing — otherwise the agent
+  // branch below redirects POST /api/auth/logout to /<cc>/queue and
+  // the user never gets signed out.
+  "/api/auth/logout",
 ]);
 
 /**
@@ -178,15 +182,24 @@ export async function middleware(request: NextRequest) {
 
   if (claims.user_role === "agent") {
     const queueHome = `/${cc}/queue`;
-    // Cross-country block.
+    // Cross-country block (any other country prefix → bounce to own queue).
     if (segment && isCountrySlug(segment.toUpperCase()) && segment !== cc) {
       const url = request.nextUrl.clone();
       url.pathname = queueHome;
       url.search = "";
       return NextResponse.redirect(url);
     }
-    // Anything not under /<cc>/queue → push to the queue home.
-    if (!pathname.startsWith(queueHome)) {
+    // Root → push to the queue home.
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = queueHome;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    // Within own country but outside the queue (e.g. /mz, /mz/admin) →
+    // push to the queue home. Paths without a country prefix fall through
+    // so unknown routes (/atlantis, /foo) can resolve to a Next.js 404.
+    if (segment === cc && !pathname.startsWith(queueHome)) {
       const url = request.nextUrl.clone();
       url.pathname = queueHome;
       url.search = "";

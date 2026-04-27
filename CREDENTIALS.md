@@ -20,7 +20,7 @@ This is a **standalone project for Paratus Group**, not a Paratus Namibia / AMA 
 | Google (master) | Paratus Group | **`para.group.n8n@gmail.com`** | ✅ created |
 | Supabase | Paratus Group (Google SSO via `para.group.n8n@gmail.com`) | project ref TBD — confirm at Phase 1 wiring | ✅ created — needs URL + keys captured into `.env.local` |
 | Vercel | Paratus Group (Google SSO via `para.group.n8n@gmail.com`) | `paratus-group-dashboards` | ✅ created — needs CLI link to repo at Phase 1 |
-| GitHub | **Decision: new GitHub account or organisation under the same Google email — recommended for clean handover** (alternative: user's personal account, transfer at handover) | repo URL TBD | pending |
+| GitHub | User's personal account (`Robofish89`) — to be transferred to a Paratus Group account at handover | https://github.com/Robofish89/paratus-group-dashboards (private) | ✅ created |
 | Domain | Paratus (subdomain on `paratus.africa` preferred) or temp domain via Vercel | TBD | pending |
 
 ## APIs & Integrations
@@ -66,16 +66,17 @@ ALERT_FROM_EMAIL=
 - **End of Phase 1:**
   7. First push to `main` → Vercel auto-deploys → smoke test the placeholder pages live
 
-## GitHub — recommendation
+## GitHub — current state
 
-Create a **new GitHub account under `para.group.n8n@gmail.com`** (or a GitHub Organisation owned by that account). Reasons:
-- Matches the Supabase / Vercel ownership model — one Google account owns the entire stack
-- Handover at completion = a single email + password transfer, not a per-service migration
-- Personal repos held by you become a coupling that has to be unwound later
+**Decision: user's personal GitHub** (`Robofish89`). Repo: https://github.com/Robofish89/paratus-group-dashboards (private).
 
-If you'd rather move faster: use your personal GitHub temporarily and **transfer the repo** at handover. GitHub's repo transfer preserves history, issues, and PRs. Either path works; the new-account path is cleaner.
+**Handover plan:** at project completion, transfer the repo to a GitHub account or organisation owned by `para.group.n8n@gmail.com` via GitHub's repo transfer feature. This preserves all history, issues, and PRs. Steps recorded for the handover runbook (to be written in Phase 7):
 
-My default unless you say otherwise: new GitHub account / org under `para.group.n8n@gmail.com`.
+1. Create GitHub account / org under `para.group.n8n@gmail.com`
+2. Repo Settings → Danger Zone → Transfer ownership
+3. Update Vercel git connection to the new owner
+4. Update any local `git remote set-url origin` references in handover docs
+5. Add the new owner as the only collaborator with admin rights; remove personal account if desired
 
 ## Boundary
 

@@ -1,5 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function RootPage() {
-  return (
-    <noscript>This dashboard requires JavaScript.</noscript>
-  );
+  redirect("/hq");
 }

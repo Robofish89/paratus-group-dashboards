@@ -21,12 +21,19 @@ export interface DashboardUser {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  navigation: NavItem[];
+  navItems: NavItem[];
   appName: string;
   appSubtitle?: string;
+  title?: string;
+  subtitle?: string;
   user?: DashboardUser;
   className?: string;
   onSignOut?: () => void;
+  /**
+   * Override the active-route detection. Useful for server components that
+   * cannot use `usePathname`. When omitted, falls back to the client pathname.
+   */
+  currentPath?: string;
 }
 
 function getInitials(name: string): string {
@@ -40,14 +47,18 @@ function getInitials(name: string): string {
 
 function DashboardLayout({
   children,
-  navigation,
+  navItems,
   appName,
   appSubtitle,
+  title,
+  subtitle,
   user,
   className,
   onSignOut,
+  currentPath,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const activePath = currentPath ?? pathname;
 
   return (
     <div className="flex min-h-screen">
@@ -57,14 +68,14 @@ function DashboardLayout({
         <div className="flex items-center gap-3 px-5 py-6">
           <Image
             src="/logo.png"
-            alt="Paratus"
+            alt={appName}
             width={36}
             height={36}
             className="rounded-lg brightness-[1.8]"
           />
           <div>
             <div className="text-[15px] font-bold tracking-tight text-white leading-none">
-              Paratus
+              {appName}
             </div>
             {appSubtitle && (
               <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#64748b] mt-0.5">
@@ -76,11 +87,11 @@ function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 px-3 pt-4">
-          {navigation.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+                ? activePath === "/"
+                : activePath.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -137,7 +148,17 @@ function DashboardLayout({
 
       {/* Main Content */}
       <main className={cn("flex-1 ml-64 bg-[#f8fafc] min-h-screen", className)}>
-        <div className="p-8 max-w-[1280px]">
+        {(title || subtitle) && (
+          <div className="px-8 pt-8 pb-2">
+            {title && (
+              <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+            )}
+            {subtitle && (
+              <p className="text-slate-500 text-sm mt-1">{subtitle}</p>
+            )}
+          </div>
+        )}
+        <div className={cn(title || subtitle ? "px-8 py-4" : "p-8", "max-w-[1280px]")}>
           {children}
         </div>
       </main>

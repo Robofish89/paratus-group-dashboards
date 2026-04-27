@@ -1,0 +1,10 @@
+{
+  "name": "@repo/config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./tailwind": "./tailwind/index.ts",
+    "./eslint": "./eslint/index.js",
+    "./typescript": "./typescript/base.json"
+  }
+}

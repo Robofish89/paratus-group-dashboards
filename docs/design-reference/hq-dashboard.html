@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paratus Group - HQ Overview Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+          },
+          colors: {
+            paratus: {
+              blue: '#00468b',
+              navy: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'DM Sans', sans-serif; }
+
+    /* Smooth bar animation */
+    .bar-fill {
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Table row hover */
+    .country-row {
+      transition: background-color 0.15s ease;
+    }
+    .country-row:hover {
+      background-color: #f1f5f9;
+    }
+
+    /* Status dot pulse for green */
+    .dot-green {
+      background-color: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+    }
+    .dot-amber {
+      background-color: #f59e0b;
+    }
+    .dot-red {
+      background-color: #ef4444;
+    }
+
+    /* Area chart */
+    .chart-area {
+      position: relative;
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+    }
+    .chart-bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      position: relative;
+    }
+
+    /* SVG line chart area */
+    .trend-chart {
+      position: relative;
+    }
+  </style>
+</head>
+<body class="bg-[#f8fafc] min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-[#0f172a] min-h-screen flex flex-col fixed left-0 top-0 bottom-0 z-10">
+    <!-- Logo -->
+    <div class="px-5 pt-6 pb-5">
+      <div class="flex items-center gap-3">
+        <img src="../logo/logo.png" alt="Paratus" style="width: 36px; height: 36px; object-fit: contain; filter: brightness(0) invert(1);">
+        <span class="text-white text-xl font-bold tracking-tight">Paratus</span>
+      </div>
+      <p class="text-slate-400 text-xs font-medium mt-1.5 tracking-widest uppercase ml-[48px]">HQ Overview</p>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="mt-4 flex-1 px-3">
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm font-medium mb-1 cursor-pointer">
+        <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Overview
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium mb-1 cursor-pointer transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Countries
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium mb-1 cursor-pointer transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+        Services
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium mb-1 cursor-pointer transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Reports
+      </a>
+    </nav>
+
+    <!-- Bottom info -->
+    <div class="px-5 py-4 border-t border-white/10">
+      <p class="text-slate-500 text-xs">Paratus Africa Group</p>
+      <p class="text-slate-600 text-[10px] mt-0.5">Dashboard v1.0</p>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ml-64 flex-1 min-h-screen">
+    <!-- Page Header -->
+    <div class="px-8 pt-8 pb-2">
+      <h1 class="text-2xl font-bold text-slate-900">Paratus Group Overview</h1>
+      <p class="text-slate-500 text-sm mt-1">Real-time lead performance across all countries</p>
+    </div>
+
+    <div class="px-8 py-4">
+      <!-- Top Row - Stat Cards -->
+      <div class="grid grid-cols-5 gap-4 mb-6">
+        <!-- Total Leads -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Leads (Group)</p>
+          <p class="text-3xl font-bold text-slate-900 mt-2">8,432</p>
+        </div>
+        <!-- Countries Active -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Countries Active</p>
+          <p class="text-3xl font-bold text-slate-900 mt-2">13</p>
+        </div>
+        <!-- Conversion Rate -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Conversion Rate</p>
+          <div class="flex items-end gap-2 mt-2">
+            <p class="text-3xl font-bold text-emerald-600">14.2%</p>
+            <span class="flex items-center text-emerald-500 text-xs font-semibold mb-1.5">
+              <svg class="w-3.5 h-3.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+              </svg>
+              2.1%
+            </span>
+          </div>
+        </div>
+        <!-- Avg Speed to Lead -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Avg Speed to Lead</p>
+          <div class="flex items-end gap-2 mt-2">
+            <p class="text-3xl font-bold text-emerald-600">4.8</p>
+            <span class="text-sm font-medium text-emerald-600 mb-1">min</span>
+          </div>
+        </div>
+        <!-- Leads Today -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+          <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Leads Today</p>
+          <p class="text-3xl font-bold text-[#00468b] mt-2">127</p>
+        </div>
+      </div>
+
+      <!-- Country Performance Table -->
+      <div class="bg-white rounded-xl border border-slate-200 mb-6">
+        <div class="px-6 py-4 border-b border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900">Country Performance</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-slate-100">
+                <th class="text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Country</th>
+                <th class="text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Total Leads</th>
+                <th class="text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">New Today</th>
+                <th class="text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Contacted %</th>
+                <th class="text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Converted %</th>
+                <th class="text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Avg Response</th>
+                <th class="text-center text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-6 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Namibia</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">1,847</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">23</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">89%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">18.2%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">2.1 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-green"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">South Africa</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">1,523</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">18</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">82%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">15.1%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">3.4 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-green"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Botswana</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">892</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">12</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">78%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">14.8%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">4.2 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-green"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Kenya</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">756</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">11</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">75%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">13.2%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">4.8 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-green"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Zambia</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">634</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">9</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">71%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">12.1%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">5.1 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-amber"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Tanzania</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">521</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">8</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">68%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">11.5%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">5.8 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-amber"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">DRC</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">489</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">7</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">65%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">10.2%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">6.2 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-amber"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Mozambique</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">412</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">6</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">62%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">9.8%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">7.1 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Angola</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">387</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">5</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">58%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">8.4%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">8.3 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Uganda</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">312</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">4</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">55%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">7.9%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">9.2 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Rwanda</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">267</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">3</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">52%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">7.1%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">10.1 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+              <tr class="country-row border-b border-slate-50 cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Malawi</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">198</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">2</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">48%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">6.2%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">12.4 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+              <tr class="country-row cursor-pointer">
+                <td class="px-6 py-3.5 text-sm font-semibold text-slate-900">Eswatini</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right font-medium">194</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">1</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">45%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">5.8%</td>
+                <td class="px-6 py-3.5 text-sm text-slate-700 text-right">14.2 min</td>
+                <td class="px-6 py-3.5 text-center"><span class="inline-block w-2.5 h-2.5 rounded-full dot-red"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Legend -->
+        <div class="px-6 py-3 border-t border-slate-100 flex items-center gap-6">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full dot-green"></span>
+            <span class="text-[11px] text-slate-400">&lt; 5 min</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full dot-amber"></span>
+            <span class="text-[11px] text-slate-400">5 - 8 min</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full dot-red"></span>
+            <span class="text-[11px] text-slate-400">&gt; 8 min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Third Row - Two Column Layout -->
+      <div class="grid grid-cols-2 gap-6 mb-8">
+
+        <!-- Left: Leads by Service -->
+        <div class="bg-white rounded-xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900">Leads by Service (Group)</h2>
+          </div>
+          <div class="px-6 py-5 space-y-4">
+            <!-- Broadband Services -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Broadband Services</span>
+                <span class="text-sm font-semibold text-slate-900">2,847</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 100%"></div>
+              </div>
+            </div>
+            <!-- Starlink -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Starlink</span>
+                <span class="text-sm font-semibold text-slate-900">1,923</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 67.5%"></div>
+              </div>
+            </div>
+            <!-- Essential Access -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Essential Access</span>
+                <span class="text-sm font-semibold text-slate-900">1,456</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 51.1%"></div>
+              </div>
+            </div>
+            <!-- Satellite Services -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Satellite Services</span>
+                <span class="text-sm font-semibold text-slate-900">1,102</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 38.7%"></div>
+              </div>
+            </div>
+            <!-- Carrier Services -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Carrier Services</span>
+                <span class="text-sm font-semibold text-slate-900">623</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 21.9%"></div>
+              </div>
+            </div>
+            <!-- Data Center -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Data Center</span>
+                <span class="text-sm font-semibold text-slate-900">312</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 11%"></div>
+              </div>
+            </div>
+            <!-- Connect2Care -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Connect2Care</span>
+                <span class="text-sm font-semibold text-slate-900">98</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 3.4%"></div>
+              </div>
+            </div>
+            <!-- Starlink for Schools -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-sm text-slate-700">Starlink for Schools</span>
+                <span class="text-sm font-semibold text-slate-900">71</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="bar-fill h-full bg-[#00468b] rounded-full" style="width: 2.5%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Speed to Lead Trend -->
+        <div class="bg-white rounded-xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-base font-semibold text-slate-900">Speed to Lead Trend</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Average response time (minutes) - last 7 days</p>
+          </div>
+          <div class="px-6 py-5">
+            <div class="trend-chart" style="height: 220px; position: relative;">
+              <!-- Y-axis labels -->
+              <div class="absolute left-0 top-0 bottom-8 w-8 flex flex-col justify-between text-[10px] text-slate-400 font-medium">
+                <span>10</span>
+                <span>8</span>
+                <span>6</span>
+                <span>4</span>
+                <span>2</span>
+              </div>
+              <!-- Chart area -->
+              <div class="ml-10 relative" style="height: 192px;">
+                <!-- Grid lines -->
+                <div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  <div class="border-b border-slate-100 border-dashed"></div>
+                  <div class="border-b border-slate-100 border-dashed"></div>
+                  <div class="border-b border-slate-100 border-dashed"></div>
+                  <div class="border-b border-slate-100 border-dashed"></div>
+                  <div class="border-b border-slate-100"></div>
+                </div>
+                <!-- SVG Chart -->
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 600 192" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#00468b" stop-opacity="0.15"/>
+                      <stop offset="100%" stop-color="#00468b" stop-opacity="0.01"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Area fill -->
+                  <!-- Values: 8.2, 7.1, 6.3, 5.8, 5.2, 4.9, 4.8 -->
+                  <!-- Y mapping: value -> (1 - value/10) * 192 -->
+                  <!-- 8.2 -> 34.6, 7.1 -> 55.7, 6.3 -> 71.0, 5.8 -> 80.6, 5.2 -> 92.2, 4.9 -> 97.9, 4.8 -> 99.8 -->
+                  <path d="M0,34.6 L100,55.7 L200,71.0 L300,80.6 L400,92.2 L500,97.9 L600,99.8 L600,192 L0,192 Z" fill="url(#areaGradient)"/>
+                  <!-- Line -->
+                  <path d="M0,34.6 L100,55.7 L200,71.0 L300,80.6 L400,92.2 L500,97.9 L600,99.8" fill="none" stroke="#00468b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Data points -->
+                  <circle cx="0" cy="34.6" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="100" cy="55.7" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="200" cy="71.0" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="300" cy="80.6" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="400" cy="92.2" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="500" cy="97.9" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                  <circle cx="600" cy="99.8" r="4" fill="white" stroke="#00468b" stroke-width="2"/>
+                </svg>
+                <!-- Value labels on points -->
+                <div class="absolute inset-0 flex justify-between pointer-events-none" style="padding: 0;">
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 10px;">8.2</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 32px;">7.1</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 46px;">6.3</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 56px;">5.8</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 66px;">5.2</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 72px;">4.9</span>
+                  <span class="text-[10px] font-semibold text-[#00468b] relative" style="top: 74px;">4.8</span>
+                </div>
+              </div>
+              <!-- X-axis labels -->
+              <div class="ml-10 flex justify-between mt-2">
+                <span class="text-[11px] text-slate-400 font-medium">Mon</span>
+                <span class="text-[11px] text-slate-400 font-medium">Tue</span>
+                <span class="text-[11px] text-slate-400 font-medium">Wed</span>
+                <span class="text-[11px] text-slate-400 font-medium">Thu</span>
+                <span class="text-[11px] text-slate-400 font-medium">Fri</span>
+                <span class="text-[11px] text-slate-400 font-medium">Sat</span>
+                <span class="text-[11px] text-slate-400 font-medium">Sun</span>
+              </div>
+            </div>
+            <!-- Trend indicator -->
+            <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg w-fit">
+              <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clip-rule="evenodd"/>
+              </svg>
+              <span class="text-xs font-semibold text-emerald-700">41% improvement this week</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

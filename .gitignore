@@ -1,0 +1,34 @@
+# Dependencies
+node_modules
+
+# Next.js
+.next
+out
+
+# Vercel
+.vercel
+
+# Environment variables
+.env*
+!.env.local.example
+
+# Keys
+*.pem
+*.key
+
+# OS
+.DS_Store
+
+# Turbo
+.turbo
+.gstack/
+
+# Local tool caches
+.playwright-mcp/
+.superpowers/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Stray root-level screenshots (real assets belong under apps/*/public)
+/*.png

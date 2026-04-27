@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paratus - Country Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+          },
+          colors: {
+            'paratus-blue': '#00468b',
+            'paratus-navy': '#0f172a',
+            'paratus-bg': '#f8fafc',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+
+    /* Gauge ring animation */
+    @keyframes gauge-fill {
+      from { stroke-dashoffset: 314; }
+    }
+
+    .gauge-ring {
+      animation: gauge-fill 1.5s ease-out forwards;
+    }
+
+    /* Subtle card hover */
+    .stat-card {
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+    .stat-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* Bar animation */
+    .bar-fill {
+      transition: width 0.8s ease-out;
+    }
+
+    /* Nav hover */
+    .nav-item {
+      transition: background-color 0.15s ease;
+    }
+
+    /* Trend sparkline */
+    .sparkline {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body class="bg-paratus-bg min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-paratus-navy min-h-screen flex flex-col fixed left-0 top-0 bottom-0 z-10">
+    <!-- Logo area -->
+    <div class="px-5 pt-6 pb-2">
+      <div class="flex items-center gap-3">
+        <!-- Paratus P logo SVG -->
+        <img src="../logo/logo.png" alt="Paratus" style="width: 36px; height: 36px; object-fit: contain; filter: brightness(0) invert(1);">
+        <span class="text-white font-bold text-lg tracking-wide">Paratus</span>
+      </div>
+      <div class="mt-1.5 ml-0.5">
+        <span class="text-[10px] font-semibold tracking-[0.2em] text-slate-400 uppercase">Botswana</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="mt-6 px-3 flex-1">
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm font-medium mb-1 cursor-pointer">
+        <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+        </svg>
+        Dashboard
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 text-sm font-medium mb-1 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+        </svg>
+        Leads
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 text-sm font-medium mb-1 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+        </svg>
+        Sales Reps
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 text-sm font-medium mb-1 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Settings
+      </a>
+    </nav>
+
+    <!-- Bottom user area -->
+    <div class="px-5 py-4 border-t border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-paratus-blue flex items-center justify-center">
+          <span class="text-white text-xs font-semibold">AM</span>
+        </div>
+        <div>
+          <p class="text-white text-sm font-medium leading-tight">Admin User</p>
+          <p class="text-slate-500 text-xs">Country Admin</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="ml-64 flex-1 min-h-screen">
+    <!-- Header -->
+    <div class="px-8 pt-8 pb-2">
+      <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Lead capture performance overview</p>
+    </div>
+
+    <!-- Content -->
+    <div class="px-8 pb-8">
+
+      <!-- Row 1: Stat Cards -->
+      <div class="grid grid-cols-5 gap-4 mt-4">
+        <!-- Total Leads -->
+        <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 cursor-pointer">
+          <div class="h-1 w-10 rounded-full bg-paratus-blue mb-4"></div>
+          <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Total Leads</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">1,247</p>
+          <p class="text-xs text-slate-400 mt-1.5">All sources</p>
+        </div>
+
+        <!-- New Today -->
+        <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 cursor-pointer">
+          <div class="h-1 w-10 rounded-full bg-emerald-500 mb-4"></div>
+          <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">New Today</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">38</p>
+          <p class="text-xs text-emerald-600 font-medium mt-1.5">+12% vs yesterday</p>
+        </div>
+
+        <!-- Contacted -->
+        <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 cursor-pointer">
+          <div class="h-1 w-10 rounded-full bg-blue-500 mb-4"></div>
+          <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Contacted</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">892</p>
+          <p class="text-xs text-slate-400 mt-1.5">71.5% of total</p>
+        </div>
+
+        <!-- Converted -->
+        <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 cursor-pointer">
+          <div class="h-1 w-10 rounded-full bg-amber-500 mb-4"></div>
+          <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Converted</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">156</p>
+          <p class="text-xs text-amber-600 font-medium mt-1.5">12.5% conversion</p>
+        </div>
+
+        <!-- Avg Response Time -->
+        <div class="stat-card bg-white rounded-xl p-5 border border-slate-100 cursor-pointer">
+          <div class="h-1 w-10 rounded-full bg-emerald-500 mb-4"></div>
+          <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Avg Response Time</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">4.2 <span class="text-lg font-semibold text-slate-400">min</span></p>
+          <p class="text-xs text-emerald-600 font-medium mt-1.5">Target: &lt;5 min</p>
+        </div>
+      </div>
+
+      <!-- Row 2: Charts -->
+      <div class="grid grid-cols-2 gap-6 mt-6">
+        <!-- Leads by Service -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900 mb-5">Leads by Service</h2>
+          <div class="space-y-4">
+            <!-- Broadband Services -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Broadband Services</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 100%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">423</span>
+            </div>
+            <!-- Starlink -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Starlink</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 73.8%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">312</span>
+            </div>
+            <!-- Essential Access -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Essential Access</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 46.8%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">198</span>
+            </div>
+            <!-- Satellite Services -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Satellite Services</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 36.9%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">156</span>
+            </div>
+            <!-- Carrier Services -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Carrier Services</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 21%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">89</span>
+            </div>
+            <!-- Data Center -->
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-40 shrink-0">Data Center</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div class="bar-fill h-full bg-paratus-blue rounded-full" style="width: 16.3%"></div>
+              </div>
+              <span class="text-sm font-semibold text-slate-700 w-10 text-right">69</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lead Status Pipeline -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900 mb-4">Lead Status Pipeline</h2>
+          <!-- Legend -->
+          <div class="flex items-center gap-5 mb-6">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <span class="text-xs text-slate-500 font-medium">New</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
+              <span class="text-xs text-slate-500 font-medium">Contacted</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-xs text-slate-500 font-medium">Converted</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+              <span class="text-xs text-slate-500 font-medium">Lost</span>
+            </div>
+          </div>
+
+          <!-- Pipeline funnel visualization -->
+          <div class="space-y-3">
+            <!-- New -->
+            <div class="relative">
+              <div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex items-center justify-between" style="width: 100%">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                  <span class="text-sm font-medium text-slate-700">New</span>
+                </div>
+                <span class="text-xl font-bold text-blue-600">1,247</span>
+              </div>
+            </div>
+            <!-- Contacted -->
+            <div class="relative flex justify-center">
+              <div class="bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 flex items-center justify-between" style="width: 85%">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-orange-400"></span>
+                  <span class="text-sm font-medium text-slate-700">Contacted</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-xl font-bold text-orange-500">892</span>
+                  <span class="text-xs text-slate-400 ml-1.5">71.5%</span>
+                </div>
+              </div>
+            </div>
+            <!-- Converted -->
+            <div class="relative flex justify-center">
+              <div class="bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3 flex items-center justify-between" style="width: 60%">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                  <span class="text-sm font-medium text-slate-700">Converted</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-xl font-bold text-emerald-600">156</span>
+                  <span class="text-xs text-slate-400 ml-1.5">12.5%</span>
+                </div>
+              </div>
+            </div>
+            <!-- Lost -->
+            <div class="relative flex justify-center">
+              <div class="bg-red-50 border border-red-100 rounded-lg px-4 py-3 flex items-center justify-between" style="width: 40%">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-red-400"></span>
+                  <span class="text-sm font-medium text-slate-700">Lost</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-xl font-bold text-red-500">199</span>
+                  <span class="text-xs text-slate-400 ml-1.5">15.9%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Funnel connector lines -->
+          <div class="flex justify-center mt-4">
+            <p class="text-xs text-slate-400">Pipeline narrows from capture to conversion</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Table + Gauge -->
+      <div class="grid grid-cols-2 gap-6 mt-6">
+        <!-- Sales Rep Performance -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900 mb-4">Sales Rep Performance</h2>
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-slate-100">
+                <th class="text-left text-[11px] font-semibold tracking-wider text-slate-400 uppercase pb-3 pr-2">Rep Name</th>
+                <th class="text-center text-[11px] font-semibold tracking-wider text-slate-400 uppercase pb-3 px-2">Leads Assigned</th>
+                <th class="text-center text-[11px] font-semibold tracking-wider text-slate-400 uppercase pb-3 px-2">Contacted</th>
+                <th class="text-center text-[11px] font-semibold tracking-wider text-slate-400 uppercase pb-3 px-2">Converted</th>
+                <th class="text-right text-[11px] font-semibold tracking-wider text-slate-400 uppercase pb-3 pl-2">Avg Response</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer">
+                <td class="py-3.5 pr-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span class="text-[10px] font-semibold text-paratus-blue">SM</span>
+                    </div>
+                    <span class="text-sm font-medium text-slate-700">Sarah M.</span>
+                  </div>
+                </td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">45</td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">42</td>
+                <td class="text-center py-3.5 px-2">
+                  <span class="text-sm font-semibold text-emerald-600">12</span>
+                </td>
+                <td class="text-right py-3.5 pl-2">
+                  <span class="text-sm font-medium text-emerald-600">3.1 min</span>
+                </td>
+              </tr>
+              <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer">
+                <td class="py-3.5 pr-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span class="text-[10px] font-semibold text-paratus-blue">JK</span>
+                    </div>
+                    <span class="text-sm font-medium text-slate-700">John K.</span>
+                  </div>
+                </td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">38</td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">35</td>
+                <td class="text-center py-3.5 px-2">
+                  <span class="text-sm font-semibold text-emerald-600">8</span>
+                </td>
+                <td class="text-right py-3.5 pl-2">
+                  <span class="text-sm font-medium text-slate-600">4.5 min</span>
+                </td>
+              </tr>
+              <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer">
+                <td class="py-3.5 pr-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span class="text-[10px] font-semibold text-paratus-blue">GN</span>
+                    </div>
+                    <span class="text-sm font-medium text-slate-700">Grace N.</span>
+                  </div>
+                </td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">41</td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">38</td>
+                <td class="text-center py-3.5 px-2">
+                  <span class="text-sm font-semibold text-emerald-600">11</span>
+                </td>
+                <td class="text-right py-3.5 pl-2">
+                  <span class="text-sm font-medium text-emerald-600">2.8 min</span>
+                </td>
+              </tr>
+              <tr class="hover:bg-slate-50/50 transition-colors cursor-pointer">
+                <td class="py-3.5 pr-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span class="text-[10px] font-semibold text-paratus-blue">PO</span>
+                    </div>
+                    <span class="text-sm font-medium text-slate-700">Peter O.</span>
+                  </div>
+                </td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">33</td>
+                <td class="text-center text-sm text-slate-600 py-3.5 px-2">28</td>
+                <td class="text-center py-3.5 px-2">
+                  <span class="text-sm font-semibold text-slate-600">6</span>
+                </td>
+                <td class="text-right py-3.5 pl-2">
+                  <span class="text-sm font-medium text-red-500">6.2 min</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Speed to Lead -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h2 class="text-base font-semibold text-slate-900 mb-4">Speed to Lead</h2>
+          <div class="flex items-center gap-8">
+            <!-- Gauge ring -->
+            <div class="relative shrink-0">
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <!-- Background ring -->
+                <circle cx="80" cy="80" r="60" fill="none" stroke="#f1f5f9" stroke-width="14" />
+                <!-- Progress ring (87% = 328.3 of 377 circumference) -->
+                <circle
+                  class="gauge-ring"
+                  cx="80" cy="80" r="60"
+                  fill="none"
+                  stroke="#10b981"
+                  stroke-width="14"
+                  stroke-linecap="round"
+                  stroke-dasharray="377"
+                  stroke-dashoffset="49"
+                  transform="rotate(-90 80 80)"
+                />
+                <!-- Percentage text -->
+                <text x="80" y="73" text-anchor="middle" class="text-3xl" font-size="36" font-weight="700" fill="#0f172a">87</text>
+                <text x="80" y="73" text-anchor="middle" font-size="16" font-weight="600" fill="#0f172a" dx="24" dy="-8">%</text>
+                <text x="80" y="98" text-anchor="middle" font-size="11" font-weight="500" fill="#94a3b8">on target</text>
+              </svg>
+            </div>
+
+            <!-- Details -->
+            <div class="flex-1">
+              <p class="text-sm text-slate-600 leading-relaxed">Leads contacted within <span class="font-semibold text-slate-800">5 minutes</span> of submission</p>
+
+              <div class="mt-5">
+                <p class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-2">Last 7 days trend</p>
+                <!-- Sparkline SVG -->
+                <svg width="100%" height="48" viewBox="0 0 240 48" preserveAspectRatio="none">
+                  <!-- Grid lines -->
+                  <line x1="0" y1="12" x2="240" y2="12" stroke="#f1f5f9" stroke-width="1"/>
+                  <line x1="0" y1="24" x2="240" y2="24" stroke="#f1f5f9" stroke-width="1"/>
+                  <line x1="0" y1="36" x2="240" y2="36" stroke="#f1f5f9" stroke-width="1"/>
+                  <!-- Area fill -->
+                  <path d="M0,36 L40,32 L80,28 L120,30 L160,22 L200,16 L240,10 L240,48 L0,48 Z" fill="url(#sparkGradient)" />
+                  <!-- Line -->
+                  <polyline
+                    class="sparkline"
+                    points="0,36 40,32 80,28 120,30 160,22 200,16 240,10"
+                    fill="none"
+                    stroke="#10b981"
+                    stroke-width="2.5"
+                  />
+                  <!-- Dots -->
+                  <circle cx="0" cy="36" r="3" fill="#10b981"/>
+                  <circle cx="40" cy="32" r="3" fill="#10b981"/>
+                  <circle cx="80" cy="28" r="3" fill="#10b981"/>
+                  <circle cx="120" cy="30" r="3" fill="#10b981"/>
+                  <circle cx="160" cy="22" r="3" fill="#10b981"/>
+                  <circle cx="200" cy="16" r="3" fill="#10b981"/>
+                  <circle cx="240" cy="10" r="3.5" fill="#10b981" stroke="white" stroke-width="2"/>
+                  <defs>
+                    <linearGradient id="sparkGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#10b981" stop-opacity="0.15"/>
+                      <stop offset="100%" stop-color="#10b981" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <!-- Day labels -->
+                <div class="flex justify-between mt-1">
+                  <span class="text-[10px] text-slate-300">Mon</span>
+                  <span class="text-[10px] text-slate-300">Tue</span>
+                  <span class="text-[10px] text-slate-300">Wed</span>
+                  <span class="text-[10px] text-slate-300">Thu</span>
+                  <span class="text-[10px] text-slate-300">Fri</span>
+                  <span class="text-[10px] text-slate-300">Sat</span>
+                  <span class="text-[10px] text-slate-400 font-medium">Today</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</body>
+</html>

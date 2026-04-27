@@ -12,7 +12,7 @@ export {
   isCountrySlug,
   countryCodeToSlug,
   slugToCountryCode,
-} from '../types.js';
+} from '../types';
 
 export type {
   AppRole,
@@ -22,4 +22,4 @@ export type {
   CountrySlug,
   UserClaims,
   UserRoleRow,
-} from '../types.js';
+} from '../types';

@@ -17,7 +17,7 @@
 // server contexts (pure types + the browser client factory). server, admin,
 // dal, and schemas all import 'server-only' and must NOT be re-exported here.
 
-export { createClient as createBrowserClient } from './client.js';
+export { createClient as createBrowserClient } from './client';
 
 export {
   APP_ROLES,
@@ -28,7 +28,7 @@ export {
   isCountrySlug,
   countryCodeToSlug,
   slugToCountryCode,
-} from './types/index.js';
+} from './types/index';
 
 export type {
   AppRole,
@@ -38,4 +38,4 @@ export type {
   CountrySlug,
   UserClaims,
   UserRoleRow,
-} from './types/index.js';
+} from './types/index';

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createClient } from '../server.js';
+import { createClient } from '../server';
 // RLS BYPASS: createAdminClient() uses the service_role key and bypasses ALL
 // Row Level Security. It is imported here ONLY for getUserRoleRow(), which
 // runs during the login Server Action — at that moment the user is
@@ -10,8 +10,8 @@ import { createClient } from '../server.js';
 // `auth.uid() = user_id` (works) OR `user_role = 'hq_admin'` (not yet in the
 // JWT). We use the admin client to short-circuit that race. The function
 // scopes its query by user_id, so no cross-tenant data leaks.
-import { createAdminClient } from '../admin.js';
-import type { AppRole, CountryCode, UserClaims, UserRoleRow } from '../types.js';
+import { createAdminClient } from '../admin';
+import type { AppRole, CountryCode, UserClaims, UserRoleRow } from '../types';
 
 /**
  * Decode a base64url-encoded JWT segment without depending on Node's Buffer

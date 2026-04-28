@@ -22,11 +22,10 @@ This is the **build** project. The companion repo `paratus-hq-dashboards` holds 
 - Visual direction signed off (mockups in `docs/design-reference/`)
 - Architecture: single Next.js app, single Supabase project, RLS multi-tenancy, Vercel deploy
 - Brand congruence with AMA / AMA Care dashboards is required
+- **Phase 1 — Foundation:** Next.js app scaffolded, design system wired, auth + role routing live, RBAC migration applied, Vercel deploy serving from `main`. Validated 2026-04-28 against `https://paratus-group-dashboards.vercel.app`: all three test users land on the right route, cross-tenant access blocked, full security header set present, `/api/health` returning 200 with commit SHA.
 
 ### Active (current phase)
-
-- [ ] **Phase 1 — Foundation:** Next.js app scaffolds, design system wired, auth + role routing, Vercel deploy live, RBAC migration applied
-- [ ] **Phase 2 — Data Model & Ingestion:** leads/events/callbacks tables, RLS verified cross-country, webhook ingest endpoint, CSV importer, round-robin assignment
+- [ ] **Phase 2 — Data Model & Ingestion (next):** leads/events/callbacks tables, RLS verified cross-country, webhook ingest endpoint, CSV importer, round-robin assignment
 - [ ] **Phase 3 — Sales Rep Queue:** realtime queue, call action, outcome modal, callback scheduling, mobile responsive
 - [ ] **Phase 4 — Country Admin Dashboard:** KPIs, pipeline funnel, speed-to-lead chart, agent performance, lead list with reassignment
 - [ ] **Phase 5 — HQ Overview:** group KPIs, country leaderboard, group pipeline, drill-in
@@ -90,4 +89,4 @@ This is the **build** project. The companion repo `paratus-hq-dashboards` holds 
 - `roadmap.md` (this folder) — phase breakdown
 
 ---
-*Last updated: 2026-04-27 — initialized for build phase*
+*Last updated: 2026-04-28 — Phase 1 (Foundation) closed; production live at https://paratus-group-dashboards.vercel.app*

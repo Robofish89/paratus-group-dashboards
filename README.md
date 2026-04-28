@@ -18,6 +18,12 @@ Three role-based dashboards built as a single Next.js app with country-scoped ro
 - **Turborepo** monorepo
 - **Vercel** deploy
 
+## Live URL
+
+Production: <https://paratus-group-dashboards.vercel.app>
+
+`main` deploys to production via Vercel's GitHub integration. Health check: <https://paratus-group-dashboards.vercel.app/api/health>.
+
 ## Brand
 
 Design system mirrors the AMA / AMA Care dashboards for visual congruence across Paratus properties.
@@ -44,7 +50,10 @@ PRD/                    # product requirements (overview, features, data model, 
 
 ```bash
 npm install
+cp apps/web/.env.local.example apps/web/.env.local   # then fill in Supabase keys
 npm run dev
 ```
+
+Local dev runs on **<http://localhost:3012>** (not 3000 — collision with other DigimountAI projects). See `CREDENTIALS.md` for env-var sources.
 
 See `PRD/overview.md` for product context, `.planning/PROJECT.md` for current state, and `.planning/roadmap.md` for phases.

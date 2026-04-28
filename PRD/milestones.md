@@ -2,23 +2,23 @@
 
 Phased delivery. Maps 1:1 to GSD phases in `.planning/roadmap.md`.
 
-## Phase 1 — Foundation (~1 week)
+## Phase 1 — Foundation (~1 week) — ✅ Validated 2026-04-28
 **Goal:** Empty app boots, auth works, design system renders, deploy pipeline live.
 
-- [ ] Scaffold `apps/web` Next.js app with shared packages wired
-- [ ] Wire `@repo/ui`, `@repo/supabase`, `@repo/config`
-- [ ] `apps/web/app/globals.css` imports `@repo/ui/theme.css`
-- [ ] Supabase project created; env vars set in Vercel
-- [ ] Auth: login page (`AuthLayout`), Supabase Auth wired, logout
-- [ ] Middleware: redirect on auth, on role
-- [ ] DashboardLayout integrated with Paratus sidebar variant
-- [ ] Logo + favicon in place
-- [ ] Vercel deploy from `main` working
-- [ ] RBAC migration (00001) applied; JWT hook enabled
-- [ ] Three placeholder pages render: `(hq)`, `(country-admin)/[country]`, `(sales-rep)/[country]/queue`
-- [ ] Visual smoke check: matches AMA aesthetic
+- [x] Scaffold `apps/web` Next.js app with shared packages wired
+- [x] Wire `@repo/ui`, `@repo/supabase`, `@repo/config`
+- [x] `apps/web/app/globals.css` imports `@repo/ui/theme.css`
+- [x] Supabase project created; env vars set in Vercel (production / preview / development)
+- [x] Auth: login page (`AuthLayout`), Supabase Auth wired, logout
+- [x] Middleware: redirect on auth, on role
+- [x] DashboardLayout integrated with Paratus sidebar variant
+- [x] Logo + favicon in place
+- [x] Vercel deploy from `main` working — live at <https://paratus-group-dashboards.vercel.app>
+- [x] RBAC migration (00001) applied; JWT hook enabled
+- [x] Three placeholder pages render: `(hq)`, `(country-admin)/[country]`, `(sales-rep)/[country]/queue`
+- [x] Visual smoke check: matches AMA aesthetic
 
-**Done when:** A test user with each role logs in and lands on the right placeholder, sidebar branded, no console errors.
+**Done when:** A test user with each role logs in and lands on the right placeholder, sidebar branded, no console errors. — **Verified 2026-04-28 against production URL with all three Gmail+ alias test users.**
 
 ## Phase 2 — Data Model & Ingestion (~1 week)
 **Goal:** Leads can flow in and persist correctly, with RLS preventing cross-country leakage.

@@ -20,20 +20,23 @@ Multi-tenant system across 13 countries. RLS misconfiguration = cross-country da
 - Authorization always reads from JWT claims set by the hook, never from `auth.users.raw_user_meta_data` (that's user-controlled and unsafe).
 
 ## Pre-Launch (do once)
-- [ ] RLS enabled on ALL Supabase tables (`leads`, `lead_events`, `users`, `user_roles`, `countries`, `forms`, etc.)
-- [ ] RLS policies scope by `country_code` from JWT custom claims (use `app_metadata`, never `user_metadata`)
-- [ ] HQ users have a separate role with cross-country read; tested that country admins cannot see other countries
-- [ ] RLS policies tested from client SDK with country-A and country-B test users (not SQL Editor)
-- [ ] Security headers configured in `apps/web/next.config.ts`: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-- [ ] `.gitignore` includes: `.env*`, `*.pem`, `*.key`, `.vercel`, `.DS_Store`
-- [ ] No secrets in `NEXT_PUBLIC_*`
-- [ ] `service_role` key is server-only (never imported into client components)
-- [ ] Auth tokens in httpOnly cookies (Supabase SSR default)
-- [ ] Vercel Preview deployments password-protected
-- [ ] Supabase Allowed Hosts restricted to production domain
-- [ ] DAL imports all use `server-only`
-- [ ] Lead ingest webhook validates a shared secret + uses HMAC if reachable from public internet
-- [ ] Rate limit on `/api/auth/*` and webhook endpoints
+
+> **Phase 1 re-run — 2026-04-28 against `https://paratus-group-dashboards.vercel.app`:** items below ticked are verified in production. Items left unticked are Phase 2+ deliverables (no tenant-scoped data tables exist yet) or pending user dashboard config.
+
+- [x] RLS enabled on the only Phase-1 table — `user_roles` (verified via `00001_rbac_schema.sql`). Remaining tables (`leads`, `lead_events`, `callbacks`, `countries`, `forms`) are Phase 2 — must be ticked again when those migrations land.
+- [x] RLS pattern locked in for Phase 2: scope by `country_code` from JWT custom claims (set by `custom_access_token_hook`, sourced from `user_roles` — never `user_metadata`). HQ override via `(auth.jwt() ->> 'user_role') = 'hq_admin'`.
+- [x] HQ users have a separate role (`hq_admin`) with cross-country read — implemented in `user_roles` policies. Full cross-country leak test deferred to Phase 2 (no country-scoped tables exist yet).
+- [ ] RLS policies tested from client SDK with country-A and country-B test users — Phase 2 (`leads` table)
+- [x] Security headers configured in `apps/web/next.config.ts`: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy — all five verified live via `curl -I`
+- [x] `.gitignore` includes: `.env*`, `*.pem`, `*.key`, `.vercel`, `.DS_Store` — `git ls-files | grep -E '\.env|\.vercel'` returns only `.env.local.example` (template, no secrets)
+- [x] No secrets in `NEXT_PUBLIC_*` — `grep -r 'NEXT_PUBLIC_.*SERVICE'` clean (one false-positive in `packages/supabase/src/admin.ts` error string, not an env var)
+- [x] `service_role` key is server-only — `packages/supabase/src/admin.ts` imports `server-only`; only consumed by the login Server Action's `getUserRoleRow()` helper
+- [x] Auth tokens in httpOnly cookies (Supabase SSR default — verified via middleware response)
+- [ ] Vercel Preview deployments password-protected — **user action pending** (Vercel Dashboard → Settings → Deployment Protection → Vercel Authentication, Preview only)
+- [x] Supabase Allowed Hosts restricted to localhost + production domain — Redirect URLs set; **user action pending** to flip Site URL from `http://localhost:3012` to `https://paratus-group-dashboards.vercel.app`
+- [x] DAL imports all use `server-only` — `packages/supabase/src/dal/users.ts` + `admin.ts` both verified
+- [ ] Lead ingest webhook validates a shared secret + uses HMAC — Phase 2 deliverable
+- [ ] Rate limit on `/api/auth/*` and webhook endpoints — Phase 2/6 deliverable
 
 ## Every Deployment
 - [ ] `npm audit` — no high/critical

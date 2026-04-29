@@ -121,22 +121,22 @@ JWT custom claims (set by `custom_access_token_hook` like AMA's):
 }
 ```
 
-Policy template for any table with `country_code`:
+Policy template for any table with `country_code` — note the `(select …)` wrap, which lets Postgres run an `initPlan` and cache the JWT result per-statement (>99% perf gain on large tables, mandatory not optional):
 ```sql
 CREATE POLICY "Country scoped read" ON leads FOR SELECT TO authenticated
 USING (
-  (auth.jwt() ->> 'user_role') = 'hq_admin'
-  OR (auth.jwt() ->> 'country_code') = leads.country_code
+  (SELECT auth.jwt() ->> 'user_role') = 'hq_admin'
+  OR (SELECT auth.jwt() ->> 'country_code') = leads.country_code
 );
 
 CREATE POLICY "Agents see own assignments only" ON leads FOR SELECT TO authenticated
 USING (
-  (auth.jwt() ->> 'user_role') = 'agent'
-  AND assigned_to = auth.uid()
-  AND (auth.jwt() ->> 'country_code') = leads.country_code
+  (SELECT auth.jwt() ->> 'user_role') = 'agent'
+  AND assigned_to = (SELECT auth.uid())
+  AND (SELECT auth.jwt() ->> 'country_code') = leads.country_code
 );
 ```
-HQ admins read everything. Country admins read their country. Agents read only what's assigned to them. Writes locked to country admins (reassign) and agents (their own leads).
+HQ admins read everything. Country admins read their country. Agents read only what's assigned to them. Writes locked to country admins (reassign) and agents (their own leads). Every column referenced in a policy must be indexed — see `.planning/phases/02-data-model-ingestion/02-RESEARCH.md` Pitfall 5.
 
 ## Migration Order
 

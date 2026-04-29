@@ -83,7 +83,15 @@ Edge cases: no active agents in country → assign to country admin as fallback,
 
 ## Realtime Surfacing
 
-Supabase realtime on `leads` table, filtered by `assigned_to=auth.uid()` (for agents) or `country_code` (for admins) or no filter (for HQ). The agent's queue page subscribes; on `INSERT` event, prepend row with slide-in animation.
+Use **Supabase Realtime Broadcast from Database** (not `postgres_changes`). A trigger on `leads` calls `realtime.broadcast_changes()` to publish to private per-user / per-country topics:
+
+- Agents subscribe to `agent:<uid>` (private channel) — receives only INSERT/UPDATE where `assigned_to = uid`
+- Country admins subscribe to `country:<cc>` (private channel) — receives all changes for their country
+- HQ uses 30s view polling, not realtime (avoids fan-out cost; HQ doesn't need sub-second freshness)
+
+Authorization is enforced via RLS policies on `realtime.messages` matching `realtime.topic()` against the JWT. The agent's queue page subscribes; on `INSERT` event, prepend row with slide-in animation.
+
+> Why not `postgres_changes`? It's single-threaded, runs RLS per event, and saturates at hundreds of concurrent listeners. Broadcast scales to 10k+. See `.planning/phases/02-data-model-ingestion/02-RESEARCH.md` Pattern 3.
 
 ## SLA Clock
 

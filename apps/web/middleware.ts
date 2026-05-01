@@ -21,9 +21,9 @@ const PUBLIC_PATHS = new Set<string>([
   // branch below redirects POST /api/auth/logout to /<cc>/queue and
   // the user never gets signed out.
   "/api/auth/logout",
-  // Webhook ingest is authenticated by HMAC (PARATUS_INGEST_SECRET),
-  // not by Supabase session — must bypass the cookie auth gate.
-  "/api/leads/ingest",
+  // Lead-ingest API routes (`/api/leads/*`) are handled by the prefix
+  // bypass below — each route does its own auth (HMAC for the webhook,
+  // cookie session for the importer). No per-path entry needed here.
 ]);
 
 /**

@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-01
 current_phase: 03-sales-rep-queue
-current_plan: 01
+current_plan: 02
 plan_status: shipped
-next_plan: 03-02 (queue UI)
+next_plan: 03-03 (callback modal + mobile responsive)
 ---
 
 # Project State
@@ -16,7 +16,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 |-------|--------|--------------|
 | 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
-| 03-sales-rep-queue | in progress (1/3 plans shipped) | 2026-05-01 |
+| 03-sales-rep-queue | in progress (2/3 plans shipped) | 2026-05-01 |
 | 04-country-admin-dashboard | pending | – |
 | 05-hq-overview | pending | – |
 | 06-production-hardening | pending | – |
@@ -40,7 +40,7 @@ Phase rollup: `02-data-model-ingestion/PHASE-SUMMARY.md`.
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
 | 03-01 | queue RPCs + DAL + Zod + tests | shipped | `03-01-SUMMARY.md` |
-| 03-02 | queue UI (Server Components + realtime) | pending | – |
+| 03-02 | queue UI (Server Components + realtime) | shipped | `03-02-SUMMARY.md` |
 | 03-03 | callback modal + mobile responsive | pending | – |
 
 ## Key decisions still in force
@@ -64,19 +64,23 @@ Phase rollup: `02-data-model-ingestion/PHASE-SUMMARY.md`.
 - Phase 3 queue RPCs (`mark_lead_contacted`, `complete_call`, `schedule_callback`) are EXECUTE-granted to `authenticated`, not `service_role` like `ingest_lead`. They run from the agent's authed cookie session, gate `auth.uid() = leads.assigned_to` AND `auth.jwt() ->> country_code = leads.country_code` inside the SECURITY DEFINER function (defence in depth — the definer-rights bypass RLS, so the inside-function check is the only enforcement on writes).
 - `agent_today_stats` view: `security_invoker = true`, LEFT JOINed from `user_roles` so every active agent gets a row even with zero work (UI doesn't have to handle missing rows).
 - Plan 03-01 dropped the `as never` cast on `ingestLead` after regenerating `Database` type against migration 00009 — Phase 2 carry-forward TODO closed.
+- Plan 03-02 rewrote `packages/supabase/src/realtime.ts` from a `postgres_changes` subscriber to `usePrivateBroadcast<T>` — a generic private-channel broadcast hook with `config: { private: true }` baked in. Country admin (Phase 4) reuses the same hook with `topic: country:<code>`; agents use the typed `useAgentBroadcast` wrapper at `apps/web/app/(sales-rep)/_components/use-agent-broadcast.ts`.
+- Plan 03-02 listens on `event:'*'` (not `INSERT`) because the webhook path always emits `UPDATE` — `assign_lead` flips `assigned_to` from `NULL` to `agent_id` after the initial insert. Filtering to a single op would silently miss the production code path (same call shipped in plan 02-06's broadcast test).
+- Plan 03-02 stats are server-authoritative: `getAgentTodayStats()` is fetched on every server render, and the client only optimistically bumps `to_call_count` by 1 on a fresh assignment. Plan 03-03 will use `router.refresh()` after a successful `complete_call` so all four counters re-fetch from the view.
+- Plan 03-02's Call Now button is a stub: `data-action="call-lead"` + `data-lead-id={lead.id}` attributes, empty `onClick`. Plan said `console.log` but the project quality hook flags `console.log` and the success-criteria forbids it — data-attribute anchor is strictly better (testable from Playwright, console-clean). Plan 03-03 wires the real handler.
 
 ## Recent commits (most recent first)
 
+- `83c7cc7` — feat(03-02): wire queue page — server fetch + realtime client view
+- `0ff634e` — feat(03-02): queue card, stats strip, tabs, service filter
+- `05e5cfc` — feat(03-02): replace realtime hook with private broadcast subscriber
+- `691189f` — docs(03-01): complete queue RPCs + DAL plan
 - `0ea73cc` — test(03-01): vitest integration — three queue RPCs from agent client
 - `9ccdf0c` — feat(03-01): zod schemas + DAL + type regen for queue RPCs
 - `31c235a` — feat(03-01): migration 00009 — queue RPCs + agent_today_stats view
 - `a735a3b` — docs(03): create phase plan
 - `b683ba2` — test(02-06): webhook idempotency + realtime broadcast tests
 - `49d0a63` — test(02-06): vitest + cross-tenant RLS integration test
-- `b1bb7a3` — docs(02-05): close plan — SUMMARY + STATE update
-- `7c2817a` — docs(02-04): complete webhook ingest plan
-- `205762d` — feat(02-05): /api/leads/import-csv multipart importer
-- `0254343` — feat(02-04): /api/leads/ingest webhook + HMAC verification
 
 ## Live infrastructure
 
@@ -93,8 +97,12 @@ Clean except for pre-existing modifications to `.planning/handoff-*` and `.plann
 
 ## Next move
 
-Phase 3 plan 01 (queue RPCs + DAL + tests) shipped. Three SECURITY DEFINER RPCs (`mark_lead_contacted`, `complete_call`, `schedule_callback`), the `agent_today_stats` view, the server-only DAL with 4 reads + 3 writes, Zod schemas, and 4 green integration tests are live. The `Database` type was regenerated against migration 00009 and the Phase-2 carry-over `as never` cast on `ingestLead` is closed.
+Phase 3 plan 02 (queue UI) shipped. Six new client components, the realtime hook rewritten from `postgres_changes` to `usePrivateBroadcast`, and `/[country]/queue` now fetches initial state in parallel from the DAL and subscribes to the agent's private broadcast topic for live updates. SLA dot, stats strip, tab toggle, service filter, and 4-second fresh-flash on new assignments — all live and pixel-matched against the design reference. `npm run type-check`, `npm run lint`, and `npm run build` all green.
 
-Plan 03-02 (queue UI: Server Components + realtime subscription + call action + outcome modal) is next. The realtime spine + RLS guards + RPC primitives it needs are all in place — UI work only.
+Plan 03-03 (callback modal + mobile responsive) is next. Wiring points are documented in `03-02-SUMMARY.md`:
+- Call Now button anchor: `[data-action="call-lead"][data-lead-id="..."]` — wire `markLeadContacted` + open `CallOutcomeModal` (already in `@repo/ui`).
+- Outcome submit → `completeCall(input)` from `@repo/supabase/dal` + `router.refresh()` to re-fetch the stats view.
+- Callback outcome → `scheduleCallback(input)` from the DAL.
+- Mobile bottom-tab nav for the agent surface lands here.
 
 The `phase-2-complete` tag is staged locally; push pending explicit user approval at the plan 02-06 checkpoint.

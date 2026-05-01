@@ -12,6 +12,7 @@
     "./types": "./src/types/index.ts",
     "./dal": "./src/dal/index.ts",
     "./schemas": "./src/schemas/index.ts",
+    "./schemas/csvImport": "./src/schemas/csvImport.ts",
     "./realtime": "./src/realtime.ts"
   },
   "peerDependencies": {

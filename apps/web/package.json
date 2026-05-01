@@ -15,6 +15,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "lucide-react": "^1.7.0",
     "next": "^16.2.2",
+    "papaparse": "^5.5.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.2.2",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@repo/config": "*",
     "@types/node": "^22",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

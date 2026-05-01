@@ -3,3 +3,6 @@
 
 export { loginSchema } from './auth';
 export type { LoginInput } from './auth';
+
+export { csvRowSchema } from './csvImport';
+export type { CsvRow } from './csvImport';

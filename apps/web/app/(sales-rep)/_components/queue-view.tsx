@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { QueueLead } from "@repo/supabase/dal";
 import type { CallOutcomeModalSubmit } from "@repo/ui";
+import type { BroadcastStatus } from "@repo/supabase/realtime";
 import { useAgentBroadcast } from "./use-agent-broadcast";
 import { QueueStats, type QueueStatsData } from "./queue-stats";
 import { QueueTabs, type QueueTabKey } from "./queue-tabs";
@@ -69,6 +70,9 @@ export function QueueView({
   const [busyLeadId, setBusyLeadId] = useState<string | null>(null);
   const [activeLead, setActiveLead] = useState<QueueLead | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<BroadcastStatus | "idle">(
+    "idle",
+  );
 
   // Track which ids are already known so the broadcast handler can decide
   // whether the lead is "new to me" (bump counter) or just an update.
@@ -95,7 +99,9 @@ export function QueueView({
     }, FRESH_FLASH_MS);
   }, []);
 
-  useAgentBroadcast(agentId, (lead) => {
+  useAgentBroadcast(
+    agentId,
+    (lead) => {
     const isNew = !knownIdsRef.current.has(lead.id);
     knownIdsRef.current.add(lead.id);
 
@@ -126,7 +132,9 @@ export function QueueView({
     }
 
     if (isNew) markFresh(lead.id);
-  });
+    },
+    setRealtimeStatus,
+  );
 
   // Cleanup the fresh-id timers on unmount — leak guard.
   useEffect(() => {
@@ -226,7 +234,11 @@ export function QueueView({
   );
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6"
+      data-testid="queue-view"
+      data-realtime-status={realtimeStatus}
+    >
       <QueueStats stats={stats} />
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">

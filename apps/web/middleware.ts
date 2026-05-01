@@ -27,6 +27,14 @@ const PUBLIC_PATHS = new Set<string>([
 ]);
 
 /**
+ * E2E auth-bridge route bypasses middleware so Playwright can mint a session
+ * without already having one. The route itself returns 404 unless
+ * `E2E_AUTH_ENABLED=true` is set (which Vercel production never does), so
+ * publicly accepting traffic here is safe in dev/test only.
+ */
+const E2E_LOGIN_PATH = "/api/e2e-login";
+
+/**
  * Decode the middle (payload) segment of a JWT without pulling in a crypto
  * lib. We only TRUST `auth.getUser()` for identity — these claims are read
  * post-validation purely to make a routing decision.
@@ -121,6 +129,16 @@ export async function middleware(request: NextRequest) {
 
   // Allow public paths regardless of auth state.
   if (PUBLIC_PATHS.has(pathname)) {
+    return supabaseResponse;
+  }
+
+  // E2E test login bypass — only meaningful when the route itself is enabled
+  // via env (the route returns 404 otherwise). Letting the request through
+  // here means Playwright can land on the route without an existing session.
+  if (
+    pathname === E2E_LOGIN_PATH &&
+    process.env.E2E_AUTH_ENABLED === "true"
+  ) {
     return supabaseResponse;
   }
 

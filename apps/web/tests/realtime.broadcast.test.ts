@@ -9,7 +9,7 @@ import {
   getIngestUrl,
   getUserId,
   signInAs,
-} from "./_helpers";
+} from "../test-support/helpers";
 
 /**
  * Phase 2 acceptance — realtime broadcast emits to the assigned agent.

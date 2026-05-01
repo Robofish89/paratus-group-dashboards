@@ -28,8 +28,15 @@ out
 .superpowers/
 supabase/.temp/
 
+# Playwright artifacts (apps/web/e2e)
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+apps/web/playwright/.cache/
+
 # TypeScript incremental build cache
 *.tsbuildinfo
 
 # Stray root-level screenshots (real assets belong under apps/*/public)
 /*.png
+.claude/settings.local.json

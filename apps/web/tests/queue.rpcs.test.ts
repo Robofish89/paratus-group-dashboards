@@ -5,7 +5,7 @@ import {
   createServiceClient,
   getUserId,
   signInAs,
-} from "./_helpers";
+} from "../test-support/helpers";
 
 /**
  * Phase 3 plan 03-01 — sales-rep queue RPCs from a real agent client.

@@ -1,6 +1,9 @@
 'use client';
 
-import { usePrivateBroadcast } from '@repo/supabase/realtime';
+import {
+  usePrivateBroadcast,
+  type BroadcastStatus,
+} from '@repo/supabase/realtime';
 import type { Database } from '@repo/supabase/types';
 
 type LeadRow = Database['public']['Tables']['leads']['Row'];
@@ -22,6 +25,7 @@ type LeadRow = Database['public']['Tables']['leads']['Row'];
 export function useAgentBroadcast(
   agentId: string,
   onLead: (lead: LeadRow, operation: string) => void,
+  onStatusChange?: (status: BroadcastStatus) => void,
 ) {
   usePrivateBroadcast<LeadRow>({
     topic: `agent:${agentId}`,
@@ -32,5 +36,6 @@ export function useAgentBroadcast(
         onLead(record, env.payload?.operation ?? 'UPDATE');
       }
     },
+    onStatusChange,
   });
 }

@@ -6,7 +6,7 @@ import {
   createServiceClient,
   getIngestSecret,
   getIngestUrl,
-} from "./_helpers";
+} from "../test-support/helpers";
 
 /**
  * Phase 2 acceptance — webhook idempotency + signature gate.

@@ -5,7 +5,7 @@ import {
   createServiceClient,
   getUserId,
   signInAs,
-} from "./_helpers";
+} from "../test-support/helpers";
 
 /**
  * Phase 2 acceptance — cross-tenant RLS verification.

@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { SectionCard } from "@repo/ui";
+import {
+  getAgentQueue,
+  getAgentCompletedToday,
+  getAgentTodayStats,
+} from "@repo/supabase/dal";
 import { countryName, isActiveCountry } from "@/app/_lib/countries";
 import {
   dashboardUserFor,
@@ -7,6 +11,7 @@ import {
   requireRole,
 } from "@/app/_lib/auth";
 import { SalesRepShell } from "../../_components/sales-rep-shell";
+import { QueueView } from "../../_components/queue-view";
 
 export default async function SalesRepQueuePage({
   params,
@@ -24,24 +29,37 @@ export default async function SalesRepQueuePage({
 
   const name = countryName(country);
 
+  // Fetch initial state in parallel — RLS scopes everything to this agent.
+  // For an HQ admin "observing" the route, all three reads return empty
+  // (RLS hides every row whose assigned_to !== auth.uid()), and the
+  // QueueView renders the observer notice instead of an empty grid.
+  const [queue, completedToday, stats] = await Promise.all([
+    getAgentQueue(),
+    getAgentCompletedToday(),
+    getAgentTodayStats(),
+  ]);
+
+  const observerNotice =
+    claims.user_role === "hq_admin"
+      ? "HQ observing — agent-scoped data is empty by RLS. Pick an agent in the country admin dashboard once Phase 4 ships."
+      : undefined;
+
   return (
     <SalesRepShell
       countrySlug={country}
       countryName={name}
       currentPath={`/${country}/queue`}
-      title="My Queue"
-      subtitle={name}
+      title="Call Queue"
+      subtitle="Contact leads and record call outcomes."
       user={dashboardUserFor(user, claims)}
     >
-      <SectionCard
-        title="Phase 1 placeholder"
-        subtitle="Foundation in place. Phase 3 wires the realtime queue."
-      >
-        <p className="text-sm text-slate-500">
-          The Sales Rep call queue lands in Phase 3 — realtime lead arrivals,
-          one-click call action, outcome capture, and callback scheduling.
-        </p>
-      </SectionCard>
+      <QueueView
+        agentId={user.id}
+        initialQueue={queue}
+        initialCompleted={completedToday}
+        initialStats={stats}
+        observerNotice={observerNotice}
+      />
     </SalesRepShell>
   );
 }

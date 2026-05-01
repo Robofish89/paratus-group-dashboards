@@ -4,15 +4,17 @@
 //     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     | jq -r '.types' > packages/supabase/src/types/database.ts
 //
-// Last generated: 2026-05-01 (plan 02-02, project tgswsdfaszvztbpczfve)
-// Migration files used (note: numbering shifted vs. plan refs — see
-// packages/supabase/migrations/00005_leads_schema.sql header):
+// Last generated: 2026-05-01 (plan 03-01, project tgswsdfaszvztbpczfve)
+// Migration files reflected in this regen:
 //   00001_rbac_schema.sql
 //   00002_allow_auth_admin_read_user_roles.sql
 //   00003_rbac_v2.sql
 //   00004_reference_data.sql
-//   00005_leads_schema.sql      (plan 02-02 referred to this as "00004")
-//   00006_views.sql             (plan 02-02 referred to this as "00005")
+//   00005_leads_schema.sql
+//   00006_views.sql
+//   00007_assignment_function.sql
+//   00008_realtime_broadcast.sql
+//   00009_queue_rpcs.sql        (plan 03-01)
 
 export type Json =
   | string
@@ -64,6 +66,13 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "agent_performance"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "callbacks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "agent_today_stats"
             referencedColumns: ["agent_id"]
           },
           {
@@ -193,6 +202,13 @@ export type Database = {
             foreignKeyName: "lead_events_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "agent_today_stats"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "lead_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "user_roles"
             referencedColumns: ["user_id"]
           },
@@ -304,6 +320,13 @@ export type Database = {
             foreignKeyName: "leads_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "agent_today_stats"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "user_roles"
             referencedColumns: ["user_id"]
           },
@@ -377,6 +400,17 @@ export type Database = {
           display_name: string | null
           leads_handled: number | null
           qualification_rate: number | null
+        }
+        Relationships: []
+      }
+      agent_today_stats: {
+        Row: {
+          agent_id: string | null
+          callbacks_pending: number | null
+          completed_today: number | null
+          converted_today: number | null
+          country_code: Database["public"]["Enums"]["country_code"] | null
+          to_call_count: number | null
         }
         Relationships: []
       }
@@ -474,7 +508,26 @@ export type Database = {
       }
     }
     Functions: {
+      assign_lead: {
+        Args: { p_country: string; p_lead_id: string }
+        Returns: string
+      }
+      complete_call: {
+        Args: {
+          p_lead_id: string
+          p_lost_reason?: string
+          p_notes?: string
+          p_outcome: string
+        }
+        Returns: Json
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      ingest_lead: { Args: { payload: Json }; Returns: Json }
+      mark_lead_contacted: { Args: { p_lead_id: string }; Returns: Json }
+      schedule_callback: {
+        Args: { p_lead_id: string; p_notes?: string; p_scheduled_for: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "hq_admin" | "country_admin" | "agent"
@@ -665,4 +718,3 @@ export const Constants = {
     },
   },
 } as const
-

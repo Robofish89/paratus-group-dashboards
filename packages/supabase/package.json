@@ -13,6 +13,7 @@
     "./dal": "./src/dal/index.ts",
     "./schemas": "./src/schemas/index.ts",
     "./schemas/csvImport": "./src/schemas/csvImport.ts",
+    "./schemas/queue": "./src/schemas/queue.ts",
     "./realtime": "./src/realtime.ts"
   },
   "peerDependencies": {

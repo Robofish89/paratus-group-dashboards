@@ -15,10 +15,10 @@ import type { IngestInput } from '../schemas/ingest';
  * Success path: { lead_id, agent_id (nullable when no recipient), duplicate }
  * Error path:   { error: <code>, ... } — e.g. unknown_country / unknown_form
  *
- * Untyped on the Supabase client side because `ingest_lead` is not yet present
- * in the generated `Database` type (added in migration 00007 after the last
- * type regen). The end-of-Phase-2 type regen will pick it up; until then we
- * narrow with this discriminated union locally.
+ * The RPC's typed signature (`Args: { payload: Json }`, `Returns: Json`)
+ * landed in the generated `Database` type with the plan 03-01 regen, so we
+ * no longer cast to `never` — the wrapper just narrows the Json return into
+ * a discriminated union on the way out.
  */
 export type IngestLeadSuccess = {
   lead_id: string;
@@ -53,15 +53,13 @@ export function isIngestLeadError(
  */
 export async function ingestLead(input: IngestInput): Promise<IngestLeadResult> {
   const supabase = createServiceRoleClient();
-  // `rpc<unknown>` keeps the generated `Database` type honest while letting us
-  // assert the JSON envelope shape on the way out.
-  const { data, error } = await supabase.rpc('ingest_lead' as never, {
+  const { data, error } = await supabase.rpc('ingest_lead', {
     payload: input,
-  } as never);
+  });
 
   if (error) {
     throw new Error(`ingest_lead RPC failed: ${error.message}`);
   }
 
-  return data as IngestLeadResult;
+  return data as unknown as IngestLeadResult;
 }

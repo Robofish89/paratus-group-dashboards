@@ -9,3 +9,6 @@ export type { IngestInput } from './ingest';
 
 export { csvRowSchema } from './csvImport';
 export type { CsvRow } from './csvImport';
+
+export { callOutcomeEnum, completeCallInput, scheduleCallbackInput } from './queue';
+export type { CallOutcome, CompleteCallInput, ScheduleCallbackInput } from './queue';

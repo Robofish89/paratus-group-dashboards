@@ -3,3 +3,7 @@
 // produce a build error at compile time (the desired behaviour).
 
 export { getCurrentUserClaims, getUserRoleRow } from './users';
+export { ingestLead, isIngestLeadError } from './leads';
+export type { IngestLeadResult, IngestLeadSuccess, IngestLeadError } from './leads';
+export { appendEvent } from './events';
+export type { AppendEventInput, LeadEventType } from './events';

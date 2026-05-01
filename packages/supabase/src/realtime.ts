@@ -1,47 +1,80 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { createClient } from './client';
 
-export interface UseRealtimeSubscriptionOptions<T extends Record<string, unknown> = Record<string, unknown>> {
-  table: string;
-  schema?: string;
-  event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
-  onPayload: (payload: RealtimePostgresChangesPayload<T>) => void;
+/**
+ * Broadcast-from-Database client hook.
+ *
+ * Phase 2 (migration 00008) wired the leads table to Supabase Realtime via
+ * Broadcast-from-Database — NOT postgres_changes — and added 3 RLS policies
+ * on `realtime.messages` that gate subscribes by topic name + caller role:
+ *   - `agent:<uid>`     → only that agent (or hq_admin)
+ *   - `country:<code>`  → only country_admin of that country (or hq_admin)
+ *
+ * To pass that gate the channel MUST be opened with `private: true`. This hook
+ * encodes that requirement so callers can't accidentally drop it.
+ *
+ * Plan 03-02 — agent queue subscribes via the typed wrapper at
+ * `apps/web/app/(sales-rep)/_components/use-agent-broadcast.ts`. Plan 04-*
+ * country admin will reuse this generic hook with `topic: country:<code>`.
+ */
+
+export type BroadcastEnvelope<T = Record<string, unknown>> = {
+  event: string;
+  payload?: {
+    record?: T;
+    old_record?: T;
+    operation?: string;
+  };
+};
+
+export type BroadcastStatus =
+  | 'SUBSCRIBED'
+  | 'CHANNEL_ERROR'
+  | 'TIMED_OUT'
+  | 'CLOSED';
+
+export interface UsePrivateBroadcastOptions<T> {
+  /** Channel topic, e.g. `agent:${userId}` or `country:${code}`. */
+  topic: string;
+  /** Filter to a single TG_OP, or `'*'` for all. Default `'*'`. */
+  event?: string;
+  onMessage: (env: BroadcastEnvelope<T>) => void;
+  onStatusChange?: (status: BroadcastStatus) => void;
 }
 
 /**
- * Subscribe to Supabase Realtime postgres_changes for a given table.
- * Runs in the browser only — do NOT import from server components.
+ * Subscribe to a private Supabase Realtime broadcast channel.
+ *
+ * Stable across re-renders: the latest `onMessage` / `onStatusChange` is held
+ * in a ref so the channel is NOT torn down when the parent re-renders. The
+ * subscription only re-subscribes when `topic` or `event` changes.
  */
-export function useRealtimeSubscription<T extends Record<string, unknown> = Record<string, unknown>>({
-  table,
-  schema = 'public',
+export function usePrivateBroadcast<T = Record<string, unknown>>({
+  topic,
   event = '*',
-  onPayload,
-}: UseRealtimeSubscriptionOptions<T>) {
-  // Keep a stable ref for onPayload to avoid re-subscribing on every render
-  const callbackRef = useRef(onPayload);
-  callbackRef.current = onPayload;
+  onMessage,
+  onStatusChange,
+}: UsePrivateBroadcastOptions<T>) {
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
+  const onStatusRef = useRef(onStatusChange);
+  onStatusRef.current = onStatusChange;
 
   useEffect(() => {
     const supabase = createClient();
-    const channelName = `realtime-${schema}-${table}-${event}`;
+    const channel = supabase.channel(topic, { config: { private: true } });
 
-    const channel: RealtimeChannel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes' as never,
-        { event, schema, table },
-        (payload: RealtimePostgresChangesPayload<T>) => {
-          callbackRef.current(payload);
-        }
-      )
-      .subscribe();
+    channel.on('broadcast', { event }, (msg) =>
+      onMessageRef.current(msg as BroadcastEnvelope<T>),
+    );
+    channel.subscribe((status) => {
+      onStatusRef.current?.(status as BroadcastStatus);
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [table, schema, event]);
+  }, [topic, event]);
 }

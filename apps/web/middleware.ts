@@ -21,6 +21,9 @@ const PUBLIC_PATHS = new Set<string>([
   // branch below redirects POST /api/auth/logout to /<cc>/queue and
   // the user never gets signed out.
   "/api/auth/logout",
+  // Webhook ingest is authenticated by HMAC (PARATUS_INGEST_SECRET),
+  // not by Supabase session — must bypass the cookie auth gate.
+  "/api/leads/ingest",
 ]);
 
 /**
@@ -118,6 +121,14 @@ export async function middleware(request: NextRequest) {
 
   // Allow public paths regardless of auth state.
   if (PUBLIC_PATHS.has(pathname)) {
+    return supabaseResponse;
+  }
+
+  // Lead ingest API routes do their own auth (HMAC for the webhook, cookie
+  // session inside the handler for the CSV importer). Skipping middleware
+  // here means external callers (n8n, curl) get a clean 401/403 JSON response
+  // instead of a 307 redirect to /login.
+  if (pathname.startsWith("/api/leads/")) {
     return supabaseResponse;
   }
 

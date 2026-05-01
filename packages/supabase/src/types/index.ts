@@ -23,3 +23,8 @@ export type {
   UserClaims,
   UserRoleRow,
 } from '../types';
+
+// Generated Database type — auto-rebuilt from Supabase Postgres schema.
+// Used by Phase 2+ DAL + route handlers for typed table reads/writes.
+export type { Database, Json, Tables, TablesInsert, TablesUpdate, Enums, CompositeTypes } from './database';
+export { Constants } from './database';

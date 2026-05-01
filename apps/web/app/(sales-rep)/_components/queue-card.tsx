@@ -10,9 +10,6 @@ import { formLabelFor } from "./queue-service-filter";
  * Single lead card — pixel-matched to mockup lines 111–144 plus an SLA dot
  * (top-left) that the design reference implies but doesn't render.
  *
- * Stub for plan 03-03: the action button's onClick logs the lead id. Plan
- * 03-03 wires it to mark_lead_contacted + the outcome modal.
- *
  * `data-fresh="true"` triggers a 4-second emerald flash; the parent toggles
  * it off after 4s. The transition is gentle — no strobe.
  */
@@ -21,6 +18,10 @@ interface QueueCardProps {
   lead: QueueLead;
   /** True when this card just arrived via realtime — flashes for 4s. */
   fresh?: boolean;
+  /** Click handler for the Call Now button — wired by the parent. */
+  onCallNow: (lead: QueueLead) => void;
+  /** True while the Call Now POST or modal submit is in flight. */
+  busy?: boolean;
 }
 
 const FORM_BADGE_CLASS = "bg-blue-50 text-blue-700 border border-blue-200";
@@ -82,7 +83,12 @@ const SLA_DOT_CLASS: Record<SlaState["tone"], string> = {
   grey: "bg-slate-300",
 };
 
-export function QueueCard({ lead, fresh = false }: QueueCardProps) {
+export function QueueCard({
+  lead,
+  fresh = false,
+  onCallNow,
+  busy = false,
+}: QueueCardProps) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -151,20 +157,17 @@ export function QueueCard({ lead, fresh = false }: QueueCardProps) {
         type="button"
         data-action="call-lead"
         data-lead-id={lead.id}
-        onClick={() => {
-          // Stub — plan 03-03 wires this to mark_lead_contacted + the
-          // outcome modal. Until then the click is a no-op; the
-          // data-action / data-lead-id attributes let E2E and devtools
-          // confirm the wiring without polluting the console.
-        }}
+        disabled={busy}
+        onClick={() => onCallNow(lead)}
         className={cn(
           "w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold",
           "bg-emerald-50 text-emerald-700 border border-emerald-200",
           "hover:bg-emerald-100 cursor-pointer transition-colors duration-150",
+          "disabled:cursor-not-allowed disabled:opacity-60",
         )}
       >
         <Phone className="w-4 h-4" strokeWidth={2} />
-        Call Now
+        {busy ? "Connecting…" : "Call Now"}
       </button>
     </div>
   );

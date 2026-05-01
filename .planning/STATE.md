@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-01
 current_phase: 03-sales-rep-queue
-current_plan: null
-plan_status: pending
-next_plan: 03-sales-rep-queue (research → plan → execute)
+current_plan: 01
+plan_status: shipped
+next_plan: 03-02 (queue UI)
 ---
 
 # Project State
@@ -16,7 +16,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 |-------|--------|--------------|
 | 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
-| 03-sales-rep-queue | pending | – |
+| 03-sales-rep-queue | in progress (1/3 plans shipped) | 2026-05-01 |
 | 04-country-admin-dashboard | pending | – |
 | 05-hq-overview | pending | – |
 | 06-production-hardening | pending | – |
@@ -34,6 +34,14 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 02-06 | realtime + cross-tenant RLS validation tests | shipped | `02-06-SUMMARY.md` |
 
 Phase rollup: `02-data-model-ingestion/PHASE-SUMMARY.md`.
+
+## Phase 03 plan tracker
+
+| Plan | Subsystem | Status | Summary |
+|------|-----------|--------|---------|
+| 03-01 | queue RPCs + DAL + Zod + tests | shipped | `03-01-SUMMARY.md` |
+| 03-02 | queue UI (Server Components + realtime) | pending | – |
+| 03-03 | callback modal + mobile responsive | pending | – |
 
 ## Key decisions still in force
 
@@ -53,19 +61,22 @@ Phase rollup: `02-data-model-ingestion/PHASE-SUMMARY.md`.
 - Path 3 CSV importer (`/api/leads/import-csv`) reuses Phase 1's `createAdminClient` (`@repo/supabase/admin`) instead of plan 02-04's new `createServiceRoleClient` in `server.ts` — same key, same options. Both names exist in the codebase; convergence to one is a small Phase 6 cleanup.
 - Integration tests authenticate test users via the magiclink-cookie technique (`admin.generateLink` → `anon.verifyOtp`) — no test passwords in env. Service-role client is setup-only; assertions run from anon-key clients carrying real user JWTs so RLS is the thing under test.
 - Realtime tests listen on `event:'*'` not `'INSERT'`. The agent broadcast trigger emits `TG_OP`, and the webhook path triggers an `UPDATE` (assign_lead changes assigned_to from NULL → agent_id) rather than the `INSERT` (which has assigned_to=NULL).
+- Phase 3 queue RPCs (`mark_lead_contacted`, `complete_call`, `schedule_callback`) are EXECUTE-granted to `authenticated`, not `service_role` like `ingest_lead`. They run from the agent's authed cookie session, gate `auth.uid() = leads.assigned_to` AND `auth.jwt() ->> country_code = leads.country_code` inside the SECURITY DEFINER function (defence in depth — the definer-rights bypass RLS, so the inside-function check is the only enforcement on writes).
+- `agent_today_stats` view: `security_invoker = true`, LEFT JOINed from `user_roles` so every active agent gets a row even with zero work (UI doesn't have to handle missing rows).
+- Plan 03-01 dropped the `as never` cast on `ingestLead` after regenerating `Database` type against migration 00009 — Phase 2 carry-forward TODO closed.
 
 ## Recent commits (most recent first)
 
+- `0ea73cc` — test(03-01): vitest integration — three queue RPCs from agent client
+- `9ccdf0c` — feat(03-01): zod schemas + DAL + type regen for queue RPCs
+- `31c235a` — feat(03-01): migration 00009 — queue RPCs + agent_today_stats view
+- `a735a3b` — docs(03): create phase plan
 - `b683ba2` — test(02-06): webhook idempotency + realtime broadcast tests
 - `49d0a63` — test(02-06): vitest + cross-tenant RLS integration test
 - `b1bb7a3` — docs(02-05): close plan — SUMMARY + STATE update
 - `7c2817a` — docs(02-04): complete webhook ingest plan
 - `205762d` — feat(02-05): /api/leads/import-csv multipart importer
 - `0254343` — feat(02-04): /api/leads/ingest webhook + HMAC verification
-- `65adf79` — feat(02-04): zod ingest schema + service-role client + leads/events DAL
-- `05b85fe` — feat(02-05): csv row Zod schema + papaparse dep
-- `61ae3c4` — feat(02-03): realtime broadcast triggers + private-channel auth
-- `34d8593` — feat(02-03): assign_lead + ingest_lead RPCs + idempotency index
 
 ## Live infrastructure
 
@@ -82,8 +93,8 @@ Clean except for pre-existing modifications to `.planning/handoff-*` and `.plann
 
 ## Next move
 
-Phase 2 closed. The realtime broadcast, assignment RPC, agent-scoped RLS, webhook idempotency, and CSV importer are all proven by green integration tests. Two HTTP ingest paths live in production.
+Phase 3 plan 01 (queue RPCs + DAL + tests) shipped. Three SECURITY DEFINER RPCs (`mark_lead_contacted`, `complete_call`, `schedule_callback`), the `agent_today_stats` view, the server-only DAL with 4 reads + 3 writes, Zod schemas, and 4 green integration tests are live. The `Database` type was regenerated against migration 00009 and the Phase-2 carry-over `as never` cast on `ingestLead` is closed.
 
-Phase 3 (Sales Rep Queue) is next: build the agent UI on top of the realtime + RLS spine. Queue list, call action, outcome capture modal, callback scheduling, mobile responsive layout. Visual contract: `docs/design-reference/sales-rep-*`. Carry-over cleanup items (converge admin/service-role client names, wrap Phase-1 RLS policies, regen Database type) are tracked for Phase 6.
+Plan 03-02 (queue UI: Server Components + realtime subscription + call action + outcome modal) is next. The realtime spine + RLS guards + RPC primitives it needs are all in place — UI work only.
 
 The `phase-2-complete` tag is staged locally; push pending explicit user approval at the plan 02-06 checkpoint.

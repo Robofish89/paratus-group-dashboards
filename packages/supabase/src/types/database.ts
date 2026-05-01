@@ -4,7 +4,15 @@
 //     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     | jq -r '.types' > packages/supabase/src/types/database.ts
 //
-// Last generated: 2026-05-01 (plan 02-01, project tgswsdfaszvztbpczfve)
+// Last generated: 2026-05-01 (plan 02-02, project tgswsdfaszvztbpczfve)
+// Migration files used (note: numbering shifted vs. plan refs — see
+// packages/supabase/migrations/00005_leads_schema.sql header):
+//   00001_rbac_schema.sql
+//   00002_allow_auth_admin_read_user_roles.sql
+//   00003_rbac_v2.sql
+//   00004_reference_data.sql
+//   00005_leads_schema.sql      (plan 02-02 referred to this as "00004")
+//   00006_views.sql             (plan 02-02 referred to this as "00005")
 
 export type Json =
   | string
@@ -22,6 +30,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      callbacks: {
+        Row: {
+          assigned_to: string
+          country_code: string
+          created_at: string
+          id: string
+          lead_id: string
+          scheduled_for: string
+          status: string
+        }
+        Insert: {
+          assigned_to: string
+          country_code: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          scheduled_for: string
+          status?: string
+        }
+        Update: {
+          assigned_to?: string
+          country_code?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          scheduled_for?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "callbacks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "agent_performance"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "callbacks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "callbacks_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "callbacks_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "callbacks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       countries: {
         Row: {
           code: string
@@ -73,6 +147,189 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_events: {
+        Row: {
+          actor_id: string | null
+          country_code: string
+          created_at: string
+          id: string
+          lead_id: string
+          note: string | null
+          outcome: string | null
+          payload: Json | null
+          type: Database["public"]["Enums"]["event_type"]
+        }
+        Insert: {
+          actor_id?: string | null
+          country_code: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          note?: string | null
+          outcome?: string | null
+          payload?: Json | null
+          type: Database["public"]["Enums"]["event_type"]
+        }
+        Update: {
+          actor_id?: string | null
+          country_code?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          note?: string | null
+          outcome?: string | null
+          payload?: Json | null
+          type?: Database["public"]["Enums"]["event_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "agent_performance"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "lead_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "lead_events_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "lead_events_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          assigned_to: string | null
+          converted_at: string | null
+          country_code: string
+          created_at: string
+          email: string | null
+          first_contacted_at: string | null
+          form_slug: string
+          id: string
+          lost_at: string | null
+          lost_reason: string | null
+          message: string | null
+          name: string
+          phone: string | null
+          qualified_at: string | null
+          raw_payload: Json | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["lead_status"]
+          submitted_at: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          converted_at?: string | null
+          country_code: string
+          created_at?: string
+          email?: string | null
+          first_contacted_at?: string | null
+          form_slug: string
+          id?: string
+          lost_at?: string | null
+          lost_reason?: string | null
+          message?: string | null
+          name: string
+          phone?: string | null
+          qualified_at?: string | null
+          raw_payload?: Json | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          submitted_at: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          converted_at?: string | null
+          country_code?: string
+          created_at?: string
+          email?: string | null
+          first_contacted_at?: string | null
+          form_slug?: string
+          id?: string
+          lost_at?: string | null
+          lost_reason?: string | null
+          message?: string | null
+          name?: string
+          phone?: string | null
+          qualified_at?: string | null
+          raw_payload?: Json | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          submitted_at?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "agent_performance"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_form_slug_fkey"
+            columns: ["form_slug"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           country_code: Database["public"]["Enums"]["country_code"] | null
@@ -111,7 +368,110 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      agent_performance: {
+        Row: {
+          agent_id: string | null
+          avg_response_seconds: number | null
+          conversion_rate: number | null
+          country_code: Database["public"]["Enums"]["country_code"] | null
+          display_name: string | null
+          leads_handled: number | null
+          qualification_rate: number | null
+        }
+        Relationships: []
+      }
+      country_leaderboard: {
+        Row: {
+          conversion_rate_30d: number | null
+          conversions_30d: number | null
+          country_code: string | null
+          country_name: string | null
+          status: Database["public"]["Enums"]["country_status"] | null
+          total_leads_30d: number | null
+        }
+        Relationships: []
+      }
+      lead_pipeline_by_country: {
+        Row: {
+          country_code: string | null
+          day: string | null
+          lead_count: number | null
+          status: Database["public"]["Enums"]["lead_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+        ]
+      }
+      lead_source_mix: {
+        Row: {
+          country_code: string | null
+          day: string | null
+          form_slug: string | null
+          lead_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_form_slug_fkey"
+            columns: ["form_slug"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      speed_to_lead_daily: {
+        Row: {
+          contacted_count: number | null
+          country_code: string | null
+          day: string | null
+          median_seconds: number | null
+          p95_seconds: number | null
+          total_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+        ]
+      }
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
@@ -135,6 +495,16 @@ export type Database = {
         | "MW"
         | "ZW"
       country_status: "active" | "coming_soon"
+      event_type:
+        | "created"
+        | "assigned"
+        | "reassigned"
+        | "call"
+        | "note"
+        | "status_change"
+        | "callback_scheduled"
+        | "email_sent"
+      lead_status: "new" | "contacted" | "qualified" | "converted" | "lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -281,6 +651,17 @@ export const Constants = {
         "ZW",
       ],
       country_status: ["active", "coming_soon"],
+      event_type: [
+        "created",
+        "assigned",
+        "reassigned",
+        "call",
+        "note",
+        "status_change",
+        "callback_scheduled",
+        "email_sent",
+      ],
+      lead_status: ["new", "contacted", "qualified", "converted", "lost"],
     },
   },
 } as const

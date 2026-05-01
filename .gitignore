@@ -26,6 +26,7 @@ out
 # Local tool caches
 .playwright-mcp/
 .superpowers/
+supabase/.temp/
 
 # TypeScript incremental build cache
 *.tsbuildinfo

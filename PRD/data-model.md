@@ -138,10 +138,15 @@ USING (
 ```
 HQ admins read everything. Country admins read their country. Agents read only what's assigned to them. Writes locked to country admins (reassign) and agents (their own leads). Every column referenced in a policy must be indexed — see `.planning/phases/02-data-model-ingestion/02-RESEARCH.md` Pitfall 5.
 
-## Migration Order
+## Migration Order — as shipped
 
-1. `00001_rbac_schema.sql` — copy AMA's RBAC + JWT hook with role enum extended
-2. `00002_reference_data.sql` — `countries`, `forms`, seed rows
-3. `00003_leads_schema.sql` — `leads`, `lead_events`, `callbacks` + RLS
-4. `00004_views.sql` — dashboard views
-5. `00005_seed_dev_data.sql` — synthetic leads for local dev (NOT run in prod)
+Numbering shifted +1 across Phase 2 because Phase 1 took `00002` for the auth-admin grant. The `00005_seed_dev_data.sql` migration was dropped — synthetic seeding is handled by smoke scripts and the CSV importer instead.
+
+1. `00001_rbac_schema.sql` — RBAC + JWT custom-claims hook (Phase 1, plan 01-02)
+2. `00002_allow_auth_admin_read_user_roles.sql` — auth-admin grant for the JWT hook (Phase 1, plan 01-02)
+3. `00003_rbac_v2.sql` — adds `last_assigned_at` + `display_name` on `user_roles` (Phase 2, plan 02-01)
+4. `00004_reference_data.sql` — `countries` + `forms` reference tables and seed rows (Phase 2, plan 02-01)
+5. `00005_leads_schema.sql` — `leads`, `lead_events`, `callbacks` + RLS (Phase 2, plan 02-02)
+6. `00006_views.sql` — five dashboard views with `security_invoker = true` (Phase 2, plan 02-02)
+7. `00007_assignment_function.sql` — `leads_dedupe_idx` + `assign_lead` + `ingest_lead` RPCs (Phase 2, plan 02-03)
+8. `00008_realtime_broadcast.sql` — broadcast triggers on `leads` + RLS on `realtime.messages` for private channels (Phase 2, plan 02-03)

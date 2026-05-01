@@ -51,9 +51,21 @@ PRD/                    # product requirements (overview, features, data model, 
 ```bash
 npm install
 cp apps/web/.env.local.example apps/web/.env.local   # then fill in Supabase keys
-npm run dev
+npm run dev                                           # turbo runs every workspace's dev
 ```
 
 Local dev runs on **<http://localhost:3012>** (not 3000 — collision with other DigimountAI projects). See `CREDENTIALS.md` for env-var sources.
+
+### Testing
+
+Phase 2 ships a vitest integration suite in `apps/web/tests/` that runs against the live Supabase project (RLS, webhook idempotency, realtime broadcast):
+
+```bash
+cd apps/web
+npm run dev          # in another terminal — needed for the ingest tests
+npm test             # vitest run; 9 assertions across 3 files
+```
+
+Tests authenticate the three seeded test users via the magiclink-cookie technique (no passwords in env). Override `INGEST_TEST_URL` to point at a deployed environment.
 
 See `PRD/overview.md` for product context, `.planning/PROJECT.md` for current state, and `.planning/roadmap.md` for phases.

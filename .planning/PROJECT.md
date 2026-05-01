@@ -23,10 +23,10 @@ This is the **build** project. The companion repo `paratus-hq-dashboards` holds 
 - Architecture: single Next.js app, single Supabase project, RLS multi-tenancy, Vercel deploy
 - Brand congruence with AMA / AMA Care dashboards is required
 - **Phase 1 — Foundation:** Next.js app scaffolded, design system wired, auth + role routing live, RBAC migration applied, Vercel deploy serving from `main`. Validated 2026-04-28 against `https://paratus-group-dashboards.vercel.app`: all three test users land on the right route, cross-tenant access blocked, full security header set present, `/api/health` returning 200 with commit SHA.
+- **Phase 2 — Data Model & Ingestion:** Migrations 00003–00008 live on Supabase project `tgswsdfaszvztbpczfve`; `leads`/`lead_events`/`callbacks` shipped with country-scoped RLS + five `security_invoker` views; `ingest_lead(jsonb)` RPC routes through `assign_lead` (round-robin with `FOR UPDATE SKIP LOCKED`) for atomic insert + assign + event log; webhook ingest at `/api/leads/ingest` (HMAC + Zod) and CSV importer at `/api/leads/import-csv` (multipart, country-locked for non-HQ admins) both live in production; realtime Broadcast-from-Database triggers push every assigned lead to private `agent:<uid>` and `country:<code>` channels with RLS on `realtime.messages`. Validated 2026-05-01 by `apps/web/tests/` integration suite: 9/9 green across 3 files (cross-tenant RLS = 0 rows, idempotency same `lead_id`, broadcast within 5 s).
 
 ### Active (current phase)
-- [ ] **Phase 2 — Data Model & Ingestion (next):** leads/events/callbacks tables, RLS verified cross-country, webhook ingest endpoint, CSV importer, round-robin assignment
-- [ ] **Phase 3 — Sales Rep Queue:** realtime queue, call action, outcome modal, callback scheduling, mobile responsive
+- [ ] **Phase 3 — Sales Rep Queue (next):** realtime queue, call action, outcome modal, callback scheduling, mobile responsive
 - [ ] **Phase 4 — Country Admin Dashboard:** KPIs, pipeline funnel, speed-to-lead chart, agent performance, lead list with reassignment
 - [ ] **Phase 5 — HQ Overview:** group KPIs, country leaderboard, group pipeline, drill-in
 - [ ] **Phase 6 — Production Hardening:** real form ingestion (pilot country), SLA alerts, audit log, security pass, perf budget
@@ -89,4 +89,4 @@ This is the **build** project. The companion repo `paratus-hq-dashboards` holds 
 - `roadmap.md` (this folder) — phase breakdown
 
 ---
-*Last updated: 2026-04-28 — Phase 1 (Foundation) closed; production live at https://paratus-group-dashboards.vercel.app*
+*Last updated: 2026-05-01 — Phase 2 (Data Model & Ingestion) closed; webhook + CSV ingest live, RLS + realtime + idempotency proven by integration tests.*

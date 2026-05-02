@@ -44,15 +44,30 @@ interface StatTile {
 }
 
 const TILES: StatTile[] = [
-  { key: "to_call", label: "To Call", numberClass: "text-[#2B479B]" },
-  { key: "follow_ups", label: "Follow-ups", numberClass: "text-orange-500" },
+  {
+    key: "to_call",
+    label: "To Call",
+    numberClass: "text-[#2B479B]",
+    ring: "ring-2 ring-blue-100",
+  },
+  {
+    key: "follow_ups",
+    label: "Follow-ups",
+    numberClass: "text-orange-500",
+    ring: "ring-2 ring-orange-100",
+  },
   {
     key: "converted",
     label: "Converted",
     numberClass: "text-emerald-500",
     ring: "ring-2 ring-emerald-100",
   },
-  { key: "lost", label: "Lost", numberClass: "text-slate-500" },
+  {
+    key: "lost",
+    label: "Lost",
+    numberClass: "text-red-500",
+    ring: "ring-2 ring-red-100",
+  },
 ];
 
 export function QueueStats({

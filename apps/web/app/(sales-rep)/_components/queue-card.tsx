@@ -108,10 +108,13 @@ export function QueueCard({
       data-fresh={fresh ? "true" : undefined}
       data-attempts={lead.call_attempts}
       data-lead-id={lead.id}
+      data-status={lead.status}
       className={cn(
         "relative bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5",
         "flex flex-col hover:shadow-md transition-all duration-500",
         "data-[fresh=true]:bg-emerald-50/40 data-[fresh=true]:border-emerald-200",
+        "data-[status=converted]:bg-emerald-50/40 data-[status=converted]:border-emerald-200",
+        "data-[status=lost]:bg-red-50/40 data-[status=lost]:border-red-200",
       )}
     >
       <span

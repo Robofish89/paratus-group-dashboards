@@ -115,10 +115,16 @@ export function CardActionArea({
     return (
       <OutcomeButtons
         busy={busy}
+        attempts={lead.call_attempts}
         onConverted={() => onConverted(lead)}
         onLost={() => setMode("lost_pending")}
         onCallback={() => setMode("callback_pending")}
-        onNoAnswer={() => onNoAnswer(lead)}
+        onNoAnswer={() => {
+          onNoAnswer(lead);
+          // No-answer doesn't terminate — bounce back to idle so the agent
+          // sees the "Called" CTA again with the bumped tried-count.
+          setMode("idle");
+        }}
       />
     );
   }
@@ -128,11 +134,14 @@ export function CardActionArea({
     lead.status === "contacted" &&
     lead.last_outcome === "no_answer" &&
     lead.call_attempts >= 3;
+  const hasBeenContacted = lead.status === "contacted";
   const callLabel = hasFutureCallback
     ? "Call back"
     : isStalledNoAnswer
       ? "Try again"
-      : "Call";
+      : hasBeenContacted
+        ? "Called"
+        : "Call";
 
   return (
     <button

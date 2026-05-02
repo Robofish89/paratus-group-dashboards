@@ -2,6 +2,24 @@
 
 Multi-tenant system across 13 countries. RLS misconfiguration = cross-country data leak. Treat every checkbox as a hard gate.
 
+## Phase 3 — Sales Rep Queue (re-run 2026-05-02)
+
+> Verified live against Supabase project `tgswsdfaszvztbpczfve` and production deploy `https://paratus-group-dashboards.vercel.app`. Migrations 00009 + 00010 applied.
+
+- [x] **Five queue RPCs are SECURITY DEFINER with inside-function auth guards** — `mark_lead_contacted`, `complete_call`, `schedule_callback`, `record_no_answer`, `agent_stats_in_range`. Every one of them gates `auth.uid() = leads.assigned_to AND auth.jwt() ->> 'country_code' = leads.country_code` inside the function body before any mutation or select. Definer rights bypass RLS, so the inside-function check is the only enforcement on writes — defence in depth.
+- [x] **EXECUTE granted to `authenticated` only on the five queue RPCs** — `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon` then `GRANT EXECUTE ... TO authenticated`. Verified by `\df+` against the live project: ACL string is `postgres=X|authenticated=X|service_role=X` for all five. Anon callers (no JWT) get the explicit revoke; authenticated callers without `assigned_to` match get `forbidden` (42501) from inside the function.
+- [x] **`record_no_answer(p_lead_id uuid)` follows the same security stance as the other queue RPCs** — SECURITY DEFINER, `SET search_path = public`, `auth.uid() = leads.assigned_to` + country guard, EXECUTE on authenticated only, REVOKE FROM PUBLIC + anon. Status is NEVER mutated by this RPC; only `call_attempts++` and `last_outcome='no_answer'` plus a `lead_events` audit row.
+- [x] **`agent_stats_in_range(p_from, p_to)` scopes by `auth.uid()` implicitly** — the WHERE clause filters `assigned_to = auth.uid()`, so the returned counts reflect only the calling agent's leads. SECURITY DEFINER, `SET search_path = public`, EXECUTE on authenticated only.
+- [x] **Defence-in-depth on terminal leads** — `mark_lead_contacted` RAISEs `invalid_status` (errcode `P0001`) when called against a lead whose status is `converted` or `lost`. The UI hides the Call button on those cards; the RPC backstops it. Two layers must fail to expose the plan-03-03 dead-button crash.
+- [x] **Narrowed `complete_call` outcome enum** — drops `'qualified'`. Zod `callOutcomeEnum` rejects it at the route layer (`/api/queue/complete` returns 400); `complete_call` IF-validation RAISEs `invalid_outcome` if anything bypasses Zod. Two-layer rejection.
+- [x] **`/api/queue/no-answer` route auth posture** — `runtime='nodejs'`, cookie session via `supabase.auth.getUser()` → 401 if missing; role gate (`agent | hq_admin`) → 403 if not; Zod-validated body (`recordNoAnswerInput = z.object({ lead_id: uuid })`) → 400 on schema fail; calls `recordNoAnswer(lead_id)` from `@repo/supabase/dal` (server-only). Errors mapped: `forbidden` → 403, `lead_not_found` → 404. Same posture as `/api/queue/contact` and `/api/queue/complete`.
+- [x] **`/api/queue/complete` route auth posture (Phase 3-04 re-verified)** — Zod schema (`completeCallInput`) now rejects `'qualified'` at validation; route returns 400. Cookie session + role gate identical to other queue routes.
+- [x] **`agent_today_stats` view v2 still uses `security_invoker = true`** — per-agent counters (`to_call_count`, `follow_ups_count`, `done_today`, `converted_today`, `lost_today`) inherit the underlying tables' RLS. SELECT granted to `authenticated`. Verified: a different agent's session SELECTing the view sees only their own row.
+- [x] **No `console.log` / no TODOs / no `any` shortcuts in shipped Phase 3 code** — `git grep -n 'console.log\|TODO' apps/web/app/\(sales-rep\)/` returns zero hits in shipped files; project quality hook flags both at write time.
+- [x] **Modal-free surface — no orphan import paths** — `git grep -n 'CallOutcomeModal' packages/ apps/` returns zero hits after plan 03-04 deleted `packages/ui/src/components/call-outcome-modal.tsx` and removed the index export.
+- [x] **`/api/e2e-login` route gated by env flag** — only mounts when `E2E_AUTH_ENABLED=true`. Production has the variable unset, so the route returns 404. Used exclusively by Playwright (`apps/web/e2e/sales-rep-golden-path.spec.ts`); rejects requests without the matching `E2E_AUTH_SECRET` even when enabled.
+- [x] **All Phase 3 RLS policies wrap `auth.jwt()` / `auth.uid()`** in `(SELECT …)` for InitPlan caching — verified in migrations `00009_queue_rpcs.sql` and `00010_queue_ux_redesign.sql`. (Phase 1 user_roles unwrapped — Phase 6 cleanup carry-over.)
+
 ## Phase 2 — Data Model & Ingestion (re-run 2026-05-01)
 
 > Verified live against Supabase project `tgswsdfaszvztbpczfve` and production deploy `https://paratus-group-dashboards.vercel.app`.

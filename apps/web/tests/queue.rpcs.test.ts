@@ -107,9 +107,51 @@ describe("queue RPCs from agent client (RLS in force)", () => {
     expect(callEvent?.actor_id).toBe(agentId);
   });
 
-  test("complete_call with outcome='qualified' moves lead to qualified + writes outcome event", async () => {
+  test("complete_call with outcome='won' converts lead + writes outcome event + caches last_outcome", async () => {
     const leadId = await seedLead({
-      suffix: "qualified",
+      suffix: "won",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "contacted",
+    });
+
+    const agent = await signInAs(TEST_USERS.agentMz);
+    const { data, error } = await agent.rpc("complete_call", {
+      p_lead_id: leadId,
+      p_outcome: "won",
+      p_notes: "great fit",
+    });
+
+    expect(error).toBeNull();
+    const result = data as { lead_id: string; status: string; outcome: string };
+    expect(result.status).toBe("converted");
+    expect(result.outcome).toBe("won");
+
+    const { data: lead } = await agent
+      .from("leads")
+      .select("status, converted_at, last_outcome, call_attempts")
+      .eq("id", leadId)
+      .single();
+    expect(lead?.status).toBe("converted");
+    expect(lead?.converted_at).not.toBeNull();
+    expect(lead?.last_outcome).toBe("won");
+    expect(lead?.call_attempts).toBe(1);
+
+    const { data: events } = await agent
+      .from("lead_events")
+      .select("type, outcome, note, actor_id")
+      .eq("lead_id", leadId)
+      .eq("type", "call")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    expect(events?.[0]?.outcome).toBe("won");
+    expect(events?.[0]?.note).toBe("great fit");
+    expect(events?.[0]?.actor_id).toBe(agentId);
+  });
+
+  test("complete_call rejects 'qualified' (plan 03-04 narrowed enum)", async () => {
+    const leadId = await seedLead({
+      suffix: "qualified-rejected",
       countryCode: "MZ",
       assignedTo: agentId,
       status: "contacted",
@@ -119,32 +161,143 @@ describe("queue RPCs from agent client (RLS in force)", () => {
     const { data, error } = await agent.rpc("complete_call", {
       p_lead_id: leadId,
       p_outcome: "qualified",
-      p_notes: "great fit",
+    });
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+    expect(error?.message ?? "").toMatch(/invalid_outcome/);
+  });
+
+  test("record_no_answer increments call_attempts + writes no_answer event each call", async () => {
+    const leadId = await seedLead({
+      suffix: "no-answer",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "contacted",
+    });
+
+    const agent = await signInAs(TEST_USERS.agentMz);
+
+    for (let i = 1; i <= 3; i += 1) {
+      const { data, error } = await agent.rpc("record_no_answer", {
+        p_lead_id: leadId,
+      });
+      expect(error).toBeNull();
+      const result = data as { lead_id: string; call_attempts: number };
+      expect(result.lead_id).toBe(leadId);
+      expect(result.call_attempts).toBe(i);
+    }
+
+    // Lead status unchanged — Follow-ups predicate routes it via call_attempts.
+    const { data: lead } = await agent
+      .from("leads")
+      .select("status, call_attempts, last_outcome")
+      .eq("id", leadId)
+      .single();
+    expect(lead?.status).toBe("contacted");
+    expect(lead?.call_attempts).toBe(3);
+    expect(lead?.last_outcome).toBe("no_answer");
+
+    // Three audit events, all type='call' outcome='no_answer'.
+    const { data: events } = await agent
+      .from("lead_events")
+      .select("type, outcome")
+      .eq("lead_id", leadId)
+      .eq("type", "call")
+      .eq("outcome", "no_answer");
+    expect(events?.length).toBe(3);
+  });
+
+  test("agent_today_stats.done_today counts a full call cycle as 1, not 2", async () => {
+    // Plan 03-03 bug: completed_today summed every lead_events row of type='call',
+    // which counted both the 'connected' event from mark_lead_contacted AND the
+    // outcome event from complete_call — i.e. one call cycle = 2.
+    // Plan 03-04 fix: done_today counts terminal-status leads (status flips),
+    // so one full cycle = 1.
+    const leadId = await seedLead({
+      suffix: "single-count",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "new",
+    });
+
+    const agent = await signInAs(TEST_USERS.agentMz);
+
+    const beforeRes = await agent
+      .from("agent_today_stats")
+      .select("done_today")
+      .eq("agent_id", agentId)
+      .single();
+    const beforeDone = (beforeRes.data?.done_today ?? 0) as number;
+
+    const markRes = await agent.rpc("mark_lead_contacted", { p_lead_id: leadId });
+    expect(markRes.error).toBeNull();
+    const completeRes = await agent.rpc("complete_call", {
+      p_lead_id: leadId,
+      p_outcome: "won",
+      p_notes: "single-count check",
+    });
+    expect(completeRes.error).toBeNull();
+
+    const afterRes = await agent
+      .from("agent_today_stats")
+      .select("done_today")
+      .eq("agent_id", agentId)
+      .single();
+    const afterDone = (afterRes.data?.done_today ?? 0) as number;
+
+    expect(afterDone - beforeDone).toBe(1);
+  });
+
+  test("agent_stats_in_range returns expected counts for a [from, to) window", async () => {
+    // Two converted + one lost in the window; stats RPC must surface
+    // {converted_count: 2, lost_count: 1}. Use a tight 5-min window so we
+    // don't double-count any pre-existing lead from earlier tests.
+    const wonA = await seedLead({
+      suffix: "range-won-a",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "contacted",
+    });
+    const wonB = await seedLead({
+      suffix: "range-won-b",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "contacted",
+    });
+    const lostA = await seedLead({
+      suffix: "range-lost-a",
+      countryCode: "MZ",
+      assignedTo: agentId,
+      status: "contacted",
+    });
+
+    const agent = await signInAs(TEST_USERS.agentMz);
+    const from = new Date(Date.now() - 60_000).toISOString();
+
+    await agent.rpc("complete_call", { p_lead_id: wonA, p_outcome: "won" });
+    await agent.rpc("complete_call", { p_lead_id: wonB, p_outcome: "won" });
+    await agent.rpc("complete_call", {
+      p_lead_id: lostA,
+      p_outcome: "lost",
+      p_lost_reason: "test",
+    });
+
+    const to = new Date(Date.now() + 60_000).toISOString();
+    const { data, error } = await agent.rpc("agent_stats_in_range", {
+      p_from: from,
+      p_to: to,
     });
 
     expect(error).toBeNull();
-    const result = data as { lead_id: string; status: string; outcome: string };
-    expect(result.status).toBe("qualified");
-    expect(result.outcome).toBe("qualified");
-
-    const { data: lead } = await agent
-      .from("leads")
-      .select("status, qualified_at")
-      .eq("id", leadId)
-      .single();
-    expect(lead?.status).toBe("qualified");
-    expect(lead?.qualified_at).not.toBeNull();
-
-    const { data: events } = await agent
-      .from("lead_events")
-      .select("type, outcome, note, actor_id")
-      .eq("lead_id", leadId)
-      .eq("type", "call")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    expect(events?.[0]?.outcome).toBe("qualified");
-    expect(events?.[0]?.note).toBe("great fit");
-    expect(events?.[0]?.actor_id).toBe(agentId);
+    const result = data as {
+      converted_count: number;
+      lost_count: number;
+      done_count: number;
+    };
+    expect(result.converted_count).toBeGreaterThanOrEqual(2);
+    expect(result.lost_count).toBeGreaterThanOrEqual(1);
+    expect(result.done_count).toBeGreaterThanOrEqual(3);
   });
 
   test("schedule_callback rejects past times and accepts future times", async () => {

@@ -104,8 +104,8 @@ export default async function SalesRepQueuePage({
       countrySlug={country}
       countryName={name}
       currentPath={`/${country}/queue`}
-      title="Call Queue"
-      subtitle="Contact leads and record call outcomes."
+      title="My Leads"
+      subtitle="Phone the lead, then log how the call went."
       user={dashboardUserFor(user, claims)}
     >
       <QueueView

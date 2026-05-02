@@ -129,19 +129,13 @@ export function CardActionArea({
     );
   }
 
-  // Idle: pick the right primary CTA based on lead state.
-  const isStalledNoAnswer =
-    lead.status === "contacted" &&
-    lead.last_outcome === "no_answer" &&
-    lead.call_attempts >= 3;
-  const hasBeenContacted = lead.status === "contacted";
-  const callLabel = hasFutureCallback
-    ? "Call back"
-    : isStalledNoAnswer
-      ? "Try again"
-      : hasBeenContacted
-        ? "Called"
-        : "Call";
+  // Idle: the blue CTA is always "Called" — the agent dials the number on
+  // their phone first, then taps this button to log the call. Past tense
+  // matches the workflow regardless of fresh / stalled / scheduled-callback
+  // state. Variants like "Call back" / "Try again" were misleading; collapse
+  // them all to "Called".
+  void hasFutureCallback;
+  const callLabel = "Called";
 
   return (
     <button

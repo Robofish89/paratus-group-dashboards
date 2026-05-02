@@ -60,4 +60,6 @@ Phase 7 follows Phase 6 (no rollout without a hardened pilot).
 
 ## Next Action
 
-Run `/gsd:plan-phase 1` to produce `.planning/phases/01-foundation/PLAN.md`.
+Phases 1, 2, and 3 shipped (tags `phase-1-complete`, `phase-2-complete` staged, `phase-3-complete` staged). Per-phase shipping status tracked in `.planning/STATE.md`.
+
+Run `/gsd:plan-phase 4` to produce `.planning/phases/04-country-admin-dashboard/PLAN.md`.

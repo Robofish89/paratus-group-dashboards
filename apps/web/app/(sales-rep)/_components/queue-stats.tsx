@@ -86,10 +86,21 @@ export function QueueStats({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase">
-          Showing <span className="text-slate-600">{rangeLabel}</span> for
-          Converted &amp; Lost
-        </p>
+        <div
+          data-live-indicator
+          className={cn(
+            "inline-flex self-start items-center gap-2 rounded-full",
+            "bg-white border border-emerald-200 px-3 py-1",
+          )}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+          <span className="text-[11px] font-semibold tracking-[0.1em] text-emerald-700 uppercase">
+            Live data
+          </span>
+        </div>
         <DateRangePicker currentKey={rangeKey} currentLabel={rangeLabel} />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">

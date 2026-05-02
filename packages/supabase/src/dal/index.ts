@@ -11,7 +11,6 @@ export type { AppendEventInput, LeadEventType } from './events';
 export {
   getAgentQueue,
   getAgentFollowUps,
-  getAgentCompletedToday,
   getAgentConvertedInRange,
   getAgentLostInRange,
   getAgentTodayStats,

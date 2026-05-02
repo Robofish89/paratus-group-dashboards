@@ -185,29 +185,6 @@ export async function getAgentLostInRange({
 }
 
 /**
- * @deprecated Plan 03-04: replaced by getAgentConvertedInRange + getAgentLostInRange.
- * Kept transitionally so the queue-page compiles between Task 2 and Task 5.
- * Returns terminal-status leads from the start of the local day.
- */
-export async function getAgentCompletedToday(): Promise<QueueLead[]> {
-  const supabase = await createClient();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const { data, error } = await supabase
-    .from('leads')
-    .select(QUEUE_LEAD_COLS)
-    .in('status', ['converted', 'lost'])
-    .gte('updated_at', startOfDay.toISOString())
-    .order('updated_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`getAgentCompletedToday failed: ${error.message}`);
-  }
-  return (data ?? []) as QueueLead[];
-}
-
-/**
  * Live counters from the agent_today_stats view (plan 03-04 shape):
  * to_call_count + follow_ups_count are LIVE; done_today + converted_today +
  * lost_today are gated to today. View is RLS-gated via security_invoker.

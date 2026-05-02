@@ -5,23 +5,31 @@ import { Phone, Mail, Globe } from "lucide-react";
 import { Badge, cn } from "@repo/ui";
 import type { QueueLead } from "@repo/supabase/dal";
 import { formLabelFor } from "./queue-service-filter";
+import { CardActionArea } from "./card-action-area";
 
 /**
- * Single lead card — pixel-matched to mockup lines 111–144 plus an SLA dot
- * (top-left) that the design reference implies but doesn't render.
+ * Single lead card. Plan 03-04: action area at the bottom is now a
+ * `<CardActionArea />` state machine that renders the right buttons for the
+ * lead's current state — no more modal, no more dead "Call Now" on terminal
+ * leads.
  *
- * `data-fresh="true"` triggers a 4-second emerald flash; the parent toggles
- * it off after 4s. The transition is gentle — no strobe.
+ * `data-fresh="true"` triggers the 4-second emerald flash; the parent toggles
+ * it off after 4s. SLA dot logic from plan 03-02 carries over unchanged.
  */
 
 interface QueueCardProps {
   lead: QueueLead;
   /** True when this card just arrived via realtime — flashes for 4s. */
   fresh?: boolean;
-  /** Click handler for the Call Now button — wired by the parent. */
-  onCallNow: (lead: QueueLead) => void;
-  /** True while the Call Now POST or modal submit is in flight. */
+  /** True while the parent has a network call in flight for THIS lead. */
   busy?: boolean;
+  /** Future-scheduled callback present on this lead? Drives the "Call back" CTA label. */
+  hasFutureCallback?: boolean;
+  onCall: (lead: QueueLead) => void;
+  onConverted: (lead: QueueLead) => void;
+  onLost: (lead: QueueLead, reason: string | undefined) => void;
+  onCallback: (lead: QueueLead, scheduledForIso: string) => void;
+  onNoAnswer: (lead: QueueLead) => void;
 }
 
 const FORM_BADGE_CLASS = "bg-blue-50 text-blue-700 border border-blue-200";
@@ -44,14 +52,6 @@ type SlaState = {
   label: string;
 };
 
-/**
- * SLA dot logic — re-evaluated locally on a 30-second tick so dots age in
- * place. Once status flips to 'contacted' the dot greys out permanently.
- *   - red:   > 5 min uncontacted
- *   - amber: 2-5 min uncontacted
- *   - green: < 2 min uncontacted
- *   - grey:  contacted (or any non-new status)
- */
 function computeSlaState(lead: QueueLead, now: number): SlaState {
   if (lead.status !== "new" || lead.first_contacted_at) {
     return { tone: "grey", label: "Contacted" };
@@ -86,8 +86,13 @@ const SLA_DOT_CLASS: Record<SlaState["tone"], string> = {
 export function QueueCard({
   lead,
   fresh = false,
-  onCallNow,
   busy = false,
+  hasFutureCallback = false,
+  onCall,
+  onConverted,
+  onLost,
+  onCallback,
+  onNoAnswer,
 }: QueueCardProps) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -96,17 +101,19 @@ export function QueueCard({
   }, []);
 
   const sla = computeSlaState(lead, now);
+  const showAttemptsChip = lead.call_attempts > 0 && lead.call_attempts < 3;
 
   return (
     <div
       data-fresh={fresh ? "true" : undefined}
+      data-attempts={lead.call_attempts}
+      data-lead-id={lead.id}
       className={cn(
         "relative bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5",
         "flex flex-col hover:shadow-md transition-all duration-500",
         "data-[fresh=true]:bg-emerald-50/40 data-[fresh=true]:border-emerald-200",
       )}
     >
-      {/* SLA dot — top-left, 6px. */}
       <span
         aria-label={sla.label}
         className={cn(
@@ -114,6 +121,16 @@ export function QueueCard({
           SLA_DOT_CLASS[sla.tone],
         )}
       />
+      {showAttemptsChip && (
+        <span
+          className={cn(
+            "absolute top-2 left-7 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+            "bg-amber-50 text-amber-700 border border-amber-200",
+          )}
+        >
+          tried {lead.call_attempts}×
+        </span>
+      )}
 
       <div className="flex items-start justify-between gap-3 mb-3 pl-3">
         <h3 className="text-base font-bold text-slate-900 truncate">
@@ -153,22 +170,16 @@ export function QueueCard({
         {formatSubmittedAt(lead.submitted_at)}
       </p>
 
-      <button
-        type="button"
-        data-action="call-lead"
-        data-lead-id={lead.id}
-        disabled={busy}
-        onClick={() => onCallNow(lead)}
-        className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold",
-          "bg-emerald-50 text-emerald-700 border border-emerald-200",
-          "hover:bg-emerald-100 cursor-pointer transition-colors duration-150",
-          "disabled:cursor-not-allowed disabled:opacity-60",
-        )}
-      >
-        <Phone className="w-4 h-4" strokeWidth={2} />
-        {busy ? "Connecting…" : "Call Now"}
-      </button>
+      <CardActionArea
+        lead={lead}
+        busy={busy}
+        hasFutureCallback={hasFutureCallback}
+        onCall={onCall}
+        onConverted={onConverted}
+        onLost={onLost}
+        onCallback={onCallback}
+        onNoAnswer={onNoAnswer}
+      />
     </div>
   );
 }

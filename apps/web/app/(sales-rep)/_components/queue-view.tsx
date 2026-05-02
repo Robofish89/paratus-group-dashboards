@@ -1,85 +1,130 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { QueueLead } from "@repo/supabase/dal";
-import type { CallOutcomeModalSubmit } from "@repo/ui";
 import type { BroadcastStatus } from "@repo/supabase/realtime";
+import type { DateRangeKey } from "@/app/_lib/date-range";
 import { useAgentBroadcast } from "./use-agent-broadcast";
-import { QueueStats, type QueueStatsData } from "./queue-stats";
+import {
+  QueueStats,
+  type QueueStatsLiveData,
+  type QueueStatsRangeData,
+} from "./queue-stats";
 import { QueueTabs, type QueueTabKey } from "./queue-tabs";
 import { QueueServiceFilter } from "./queue-service-filter";
 import { QueueCard } from "./queue-card";
-import { QueueActionBar } from "./queue-action-bar";
 
 /**
- * Client wrapper for the agent queue. Owns:
- *   - the To Call / Completed lists (seeded from server, mutated by realtime)
- *   - the active tab + service filter
- *   - the per-lead "fresh" flash (4s, then auto-clears)
- *   - the Call Now → outcome modal handshake (delegates the modal itself to
- *     QueueActionBar, but owns the active-lead selection + optimistic settle)
+ * Plan-03-04 client view. Owns:
+ *   - the four lists (To Call / Follow-ups / Converted / Lost)
+ *   - the active tab + service filter + range key (for display)
+ *   - the per-lead "fresh" flash (4s)
+ *   - the inline call → outcome / lost / callback / no-answer handlers,
+ *     all firing against the queue route handlers
  *
- * Realtime contract — see use-agent-broadcast.ts. The trigger fires on
- * INSERT (with assigned_to set) or UPDATE OF assigned_to. The webhook path
- * always lands as UPDATE because assign_lead flips assigned_to from NULL.
+ * Server is authoritative on stats — `router.refresh()` after every mutation
+ * re-fetches the agent_today_stats view + agent_stats_in_range RPC. The
+ * realtime broadcast updates the lead lists optimistically.
  *
- * Stats are server-authoritative (router.refresh() runs after every successful
- * complete/callback). The optimistic +1 on a fresh assignment is the only
- * client-side mutation; the realtime broadcast for the same lead either
- * confirms or supersedes it.
+ * Range stats are server-computed and passed as `initialRange*` props; this
+ * component does NOT recompute them on the client. The DateRangePicker
+ * inside QueueStats updates the URL → server re-renders → fresh props
+ * arrive on the next render.
  */
 
 const FRESH_FLASH_MS = 4000;
 
 interface QueueViewProps {
   agentId: string;
-  initialQueue: QueueLead[];
-  initialCompleted: QueueLead[];
-  initialStats: QueueStatsData | null;
-  /** Empty-state copy when an HQ admin observes an agent-route. */
+  initialToCall: QueueLead[];
+  initialFollowUps: QueueLead[];
+  initialConverted: QueueLead[];
+  initialLost: QueueLead[];
+  /** Lead-id set of leads that carry a future-scheduled callback. */
+  futureCallbackLeadIds: string[];
+  liveStats: QueueStatsLiveData;
+  rangeStats: QueueStatsRangeData;
+  rangeKey: DateRangeKey;
+  rangeLabel: string;
   observerNotice?: string;
 }
 
+type ListKey = "to_call" | "follow_ups" | "converted" | "lost";
+
+function classifyLead(
+  lead: QueueLead,
+  futureCallbackIds: Set<string>,
+): ListKey {
+  if (lead.status === "converted") return "converted";
+  if (lead.status === "lost") return "lost";
+  // Stalled no-answers route to Follow-ups.
+  if (
+    lead.status === "contacted" &&
+    lead.last_outcome === "no_answer" &&
+    lead.call_attempts >= 3
+  ) {
+    return "follow_ups";
+  }
+  // Future callback also routes to Follow-ups.
+  if (futureCallbackIds.has(lead.id)) return "follow_ups";
+  return "to_call";
+}
+
 function upsertSorted(prev: QueueLead[], lead: QueueLead): QueueLead[] {
-  // Replace if the id already exists; otherwise prepend (newest first in the
-  // queue ordering for fresh arrivals — DAL's getAgentQueue orders ascending
-  // by submitted_at for the initial fetch, but new arrivals naturally belong
-  // at the top of the agent's attention).
-  const existingIdx = prev.findIndex((l) => l.id === lead.id);
-  if (existingIdx >= 0) {
+  const idx = prev.findIndex((l) => l.id === lead.id);
+  if (idx >= 0) {
     const next = prev.slice();
-    next[existingIdx] = lead;
+    next[idx] = lead;
     return next;
   }
   return [lead, ...prev];
 }
 
+function removeById(list: QueueLead[], id: string): QueueLead[] {
+  return list.filter((l) => l.id !== id);
+}
+
 export function QueueView({
   agentId,
-  initialQueue,
-  initialCompleted,
-  initialStats,
+  initialToCall,
+  initialFollowUps,
+  initialConverted,
+  initialLost,
+  futureCallbackLeadIds,
+  liveStats,
+  rangeStats,
+  rangeKey,
+  rangeLabel,
   observerNotice,
 }: QueueViewProps) {
-  const [queue, setQueue] = useState<QueueLead[]>(initialQueue);
-  const [completed, setCompleted] = useState<QueueLead[]>(initialCompleted);
-  const [stats, setStats] = useState<QueueStatsData | null>(initialStats);
+  const router = useRouter();
+  const [toCall, setToCall] = useState<QueueLead[]>(initialToCall);
+  const [followUps, setFollowUps] = useState<QueueLead[]>(initialFollowUps);
+  const [converted, setConverted] = useState<QueueLead[]>(initialConverted);
+  const [lost, setLost] = useState<QueueLead[]>(initialLost);
   const [tab, setTab] = useState<QueueTabKey>("to_call");
   const [serviceFilter, setServiceFilter] = useState<string | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
   const [busyLeadId, setBusyLeadId] = useState<string | null>(null);
-  const [activeLead, setActiveLead] = useState<QueueLead | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<BroadcastStatus | "idle">(
     "idle",
   );
 
-  // Track which ids are already known so the broadcast handler can decide
-  // whether the lead is "new to me" (bump counter) or just an update.
+  const futureCallbackIds = useMemo(
+    () => new Set(futureCallbackLeadIds),
+    [futureCallbackLeadIds],
+  );
+
+  // Tracks which ids are already known so the broadcast handler can flag
+  // arrivals as fresh.
   const knownIdsRef = useRef<Set<string>>(
     new Set([
-      ...initialQueue.map((l) => l.id),
-      ...initialCompleted.map((l) => l.id),
+      ...initialToCall.map((l) => l.id),
+      ...initialFollowUps.map((l) => l.id),
+      ...initialConverted.map((l) => l.id),
+      ...initialLost.map((l) => l.id),
     ]),
   );
 
@@ -99,61 +144,45 @@ export function QueueView({
     }, FRESH_FLASH_MS);
   }, []);
 
+  /**
+   * Route a freshly-broadcast lead into the right list and remove it from
+   * any other list it might have been in (state transitions).
+   */
+  const routeLead = useCallback(
+    (lead: QueueLead) => {
+      const target = classifyLead(lead, futureCallbackIds);
+      // Remove from the three non-target lists, upsert into the target.
+      if (target !== "to_call") setToCall((p) => removeById(p, lead.id));
+      if (target !== "follow_ups") setFollowUps((p) => removeById(p, lead.id));
+      if (target !== "converted") setConverted((p) => removeById(p, lead.id));
+      if (target !== "lost") setLost((p) => removeById(p, lead.id));
+      const setter =
+        target === "to_call"
+          ? setToCall
+          : target === "follow_ups"
+            ? setFollowUps
+            : target === "converted"
+              ? setConverted
+              : setLost;
+      setter((p) => upsertSorted(p, lead));
+    },
+    [futureCallbackIds],
+  );
+
   useAgentBroadcast(
     agentId,
     (lead) => {
-    const isNew = !knownIdsRef.current.has(lead.id);
-    knownIdsRef.current.add(lead.id);
-
-    // Route the row into the right list based on its terminal status.
-    const isTerminal =
-      lead.status === "qualified" ||
-      lead.status === "converted" ||
-      lead.status === "lost";
-
-    if (isTerminal) {
-      setCompleted((prev) => upsertSorted(prev, lead));
-      // If it was previously in the active queue, drop it.
-      setQueue((prev) => prev.filter((l) => l.id !== lead.id));
-    } else {
-      setQueue((prev) => upsertSorted(prev, lead));
-      if (isNew) {
-        setStats((s) =>
-          s
-            ? { ...s, to_call_count: (s.to_call_count ?? 0) + 1 }
-            : {
-                to_call_count: 1,
-                completed_today: 0,
-                converted_today: 0,
-                callbacks_pending: 0,
-              },
-        );
-      }
-    }
-
-    if (isNew) markFresh(lead.id);
+      const isNew = !knownIdsRef.current.has(lead.id);
+      knownIdsRef.current.add(lead.id);
+      routeLead(lead);
+      if (isNew) markFresh(lead.id);
     },
     setRealtimeStatus,
   );
 
-  // Cleanup the fresh-id timers on unmount — leak guard.
-  useEffect(() => {
-    return () => {
-      setFreshIds(new Set());
-    };
-  }, []);
+  // ─── Network handlers ────────────────────────────────────────────────────
 
-  /**
-   * Call Now handler. Two-phase:
-   *   1. POST /api/queue/contact → mark_lead_contacted RPC. On success, flip
-   *      lead.status to 'contacted' and set first_contacted_at locally so the
-   *      SLA dot greys out without waiting for the realtime broadcast.
-   *   2. Open the outcome modal with the lead in scope.
-   *
-   * If step 1 fails, surface the error inline at the top of the queue and do
-   * NOT open the modal — the agent should retry the contact flag first.
-   */
-  const handleCallNow = useCallback(async (lead: QueueLead) => {
+  const handleCall = useCallback(async (lead: QueueLead) => {
     setBusyLeadId(lead.id);
     setCallError(null);
     try {
@@ -166,65 +195,217 @@ export function QueueView({
         const body = (await res.json().catch(() => null)) as
           | { error?: unknown }
           | null;
-        const msg =
+        throw new Error(
           typeof body?.error === "string"
             ? body.error
-            : `Call Now failed (${res.status})`;
-        throw new Error(msg);
+            : `Call failed (${res.status})`,
+        );
       }
       const result = (await res.json()) as {
         lead_id: string;
         first_contacted_at: string;
       };
-
-      // Optimistic local update — flip status + first_contacted_at so the
-      // SLA dot ages out and the badge reflects 'contacted' immediately.
+      // Optimistic flip — server-truth lands via realtime within a beat.
       const updated: QueueLead = {
         ...lead,
         status: "contacted",
         first_contacted_at: result.first_contacted_at,
+        last_outcome: "connected",
       };
-      setQueue((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
-      setActiveLead(updated);
+      setToCall((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
+      setFollowUps((prev) =>
+        prev.map((l) => (l.id === lead.id ? updated : l)),
+      );
     } catch (err) {
-      setCallError(err instanceof Error ? err.message : "Call Now failed.");
+      setCallError(err instanceof Error ? err.message : "Call failed.");
     } finally {
       setBusyLeadId(null);
     }
   }, []);
 
-  /**
-   * Settle local state when the modal reports a successful outcome. Terminal
-   * outcomes drop the lead from To Call and prepend it to Completed; callback
-   * and no_answer leave it in the queue (still 'contacted').
-   *
-   * router.refresh() inside QueueActionBar then re-fetches stats from the
-   * authoritative view, so all four counters re-converge with the server.
-   */
-  const handleCompleted = useCallback(
-    (lead: QueueLead, outcome: CallOutcomeModalSubmit["outcome"]) => {
-      const isTerminal =
-        outcome === "qualified" || outcome === "won" || outcome === "lost";
-
-      if (isTerminal) {
-        const completedLead: QueueLead = {
-          ...lead,
-          status:
-            outcome === "qualified"
-              ? "qualified"
-              : outcome === "won"
-                ? "converted"
-                : "lost",
-        };
-        setQueue((prev) => prev.filter((l) => l.id !== lead.id));
-        setCompleted((prev) => upsertSorted(prev, completedLead));
+  const handleConverted = useCallback(
+    async (lead: QueueLead) => {
+      setBusyLeadId(lead.id);
+      setCallError(null);
+      try {
+        const res = await fetch("/api/queue/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_id: lead.id, outcome: "won" }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as
+            | { error?: unknown }
+            | null;
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : `Submit failed (${res.status})`,
+          );
+        }
+        // Optimistic move into Converted; realtime/refresh re-syncs.
+        const finished: QueueLead = { ...lead, status: "converted" };
+        setToCall((p) => removeById(p, lead.id));
+        setFollowUps((p) => removeById(p, lead.id));
+        setConverted((p) => upsertSorted(p, finished));
+        router.refresh();
+      } catch (err) {
+        setCallError(err instanceof Error ? err.message : "Submit failed.");
+      } finally {
+        setBusyLeadId(null);
       }
-      // No-op for no_answer / callback — lead stays in queue, contacted.
     },
-    [],
+    [router],
   );
 
-  const visible = tab === "to_call" ? queue : completed;
+  const handleLost = useCallback(
+    async (lead: QueueLead, reason: string | undefined) => {
+      setBusyLeadId(lead.id);
+      setCallError(null);
+      try {
+        const res = await fetch("/api/queue/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            outcome: "lost",
+            lost_reason: reason ?? "unspecified",
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as
+            | { error?: unknown }
+            | null;
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : `Submit failed (${res.status})`,
+          );
+        }
+        const finished: QueueLead = {
+          ...lead,
+          status: "lost",
+          lost_reason: reason ?? null,
+        };
+        setToCall((p) => removeById(p, lead.id));
+        setFollowUps((p) => removeById(p, lead.id));
+        setLost((p) => upsertSorted(p, finished));
+        router.refresh();
+      } catch (err) {
+        setCallError(err instanceof Error ? err.message : "Submit failed.");
+      } finally {
+        setBusyLeadId(null);
+      }
+    },
+    [router],
+  );
+
+  const handleCallback = useCallback(
+    async (lead: QueueLead, scheduledForIso: string) => {
+      setBusyLeadId(lead.id);
+      setCallError(null);
+      try {
+        const res = await fetch("/api/queue/callback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            scheduled_for: scheduledForIso,
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as
+            | { error?: unknown }
+            | null;
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : `Schedule failed (${res.status})`,
+          );
+        }
+        // Future callbacks live in Follow-ups; move there.
+        setToCall((p) => removeById(p, lead.id));
+        setFollowUps((p) => upsertSorted(p, lead));
+        router.refresh();
+      } catch (err) {
+        setCallError(
+          err instanceof Error ? err.message : "Schedule failed.",
+        );
+      } finally {
+        setBusyLeadId(null);
+      }
+    },
+    [router],
+  );
+
+  const handleNoAnswer = useCallback(
+    async (lead: QueueLead) => {
+      setBusyLeadId(lead.id);
+      setCallError(null);
+      try {
+        const res = await fetch("/api/queue/no-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_id: lead.id }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as
+            | { error?: unknown }
+            | null;
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : `No-answer failed (${res.status})`,
+          );
+        }
+        const result = (await res.json()) as {
+          lead_id: string;
+          call_attempts: number;
+        };
+        const updated: QueueLead = {
+          ...lead,
+          last_outcome: "no_answer",
+          call_attempts: result.call_attempts,
+        };
+        // 3rd no-answer flips to Follow-ups; otherwise stay in current list.
+        if (result.call_attempts >= 3) {
+          setToCall((p) => removeById(p, lead.id));
+          setFollowUps((p) => upsertSorted(p, updated));
+        } else {
+          setToCall((p) =>
+            p.map((l) => (l.id === lead.id ? updated : l)),
+          );
+          setFollowUps((p) =>
+            p.map((l) => (l.id === lead.id ? updated : l)),
+          );
+        }
+        router.refresh();
+      } catch (err) {
+        setCallError(
+          err instanceof Error ? err.message : "No-answer failed.",
+        );
+      } finally {
+        setBusyLeadId(null);
+      }
+    },
+    [router],
+  );
+
+  // ─── Derived render data ─────────────────────────────────────────────────
+
+  const visible = useMemo(() => {
+    switch (tab) {
+      case "to_call":
+        return toCall;
+      case "follow_ups":
+        return followUps;
+      case "converted":
+        return converted;
+      case "lost":
+        return lost;
+    }
+  }, [tab, toCall, followUps, converted, lost]);
+
   const filtered = useMemo(
     () =>
       serviceFilter
@@ -233,21 +414,28 @@ export function QueueView({
     [visible, serviceFilter],
   );
 
+  const counts: Record<QueueTabKey, number> = {
+    to_call: toCall.length,
+    follow_ups: followUps.length,
+    converted: converted.length,
+    lost: lost.length,
+  };
+
   return (
     <div
       className="space-y-6"
       data-testid="queue-view"
       data-realtime-status={realtimeStatus}
     >
-      <QueueStats stats={stats} />
+      <QueueStats
+        live={liveStats}
+        range={rangeStats}
+        rangeKey={rangeKey}
+        rangeLabel={rangeLabel}
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <QueueTabs
-          tab={tab}
-          onChange={setTab}
-          toCallCount={queue.length}
-          completedCount={completed.length}
-        />
+        <QueueTabs tab={tab} onChange={setTab} counts={counts} />
         <QueueServiceFilter
           value={serviceFilter}
           onChange={setServiceFilter}
@@ -276,20 +464,19 @@ export function QueueView({
               key={lead.id}
               lead={lead}
               fresh={freshIds.has(lead.id)}
-              onCallNow={handleCallNow}
               busy={busyLeadId === lead.id}
+              hasFutureCallback={futureCallbackIds.has(lead.id)}
+              onCall={handleCall}
+              onConverted={handleConverted}
+              onLost={handleLost}
+              onCallback={handleCallback}
+              onNoAnswer={handleNoAnswer}
             />
           ))}
         </div>
       ) : (
         <EmptyState tab={tab} hasFilter={!!serviceFilter} />
       )}
-
-      <QueueActionBar
-        activeLead={activeLead}
-        onClose={() => setActiveLead(null)}
-        onCompleted={handleCompleted}
-      />
     </div>
   );
 }
@@ -301,24 +488,32 @@ function EmptyState({
   tab: QueueTabKey;
   hasFilter: boolean;
 }) {
-  const headline =
-    tab === "to_call"
-      ? hasFilter
-        ? "No leads match this service filter."
-        : "Nothing in your queue right now."
-      : hasFilter
-        ? "No completed calls match this service filter."
-        : "No completed calls today yet.";
+  const HEADLINES: Record<QueueTabKey, string> = {
+    to_call: hasFilter
+      ? "No leads match this service filter."
+      : "Nothing in your queue right now.",
+    follow_ups: hasFilter
+      ? "No follow-ups match this service filter."
+      : "No follow-ups waiting.",
+    converted: hasFilter
+      ? "No conversions match this service filter."
+      : "No conversions in this range yet.",
+    lost: hasFilter
+      ? "No lost leads match this service filter."
+      : "No lost leads in this range.",
+  };
 
-  const sub =
-    tab === "to_call"
-      ? "New leads land here automatically — no refresh needed."
-      : "Calls you wrap up today will appear here.";
+  const SUBS: Record<QueueTabKey, string> = {
+    to_call: "New leads land here automatically — no refresh needed.",
+    follow_ups: "Future callbacks + stalled no-answers show up here.",
+    converted: "Pick a different range to see older conversions.",
+    lost: "Pick a different range to see older losses.",
+  };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-6 py-10 text-center">
-      <p className="text-sm font-semibold text-slate-700">{headline}</p>
-      <p className="mt-1 text-xs text-slate-500">{sub}</p>
+      <p className="text-sm font-semibold text-slate-700">{HEADLINES[tab]}</p>
+      <p className="mt-1 text-xs text-slate-500">{SUBS[tab]}</p>
     </div>
   );
 }

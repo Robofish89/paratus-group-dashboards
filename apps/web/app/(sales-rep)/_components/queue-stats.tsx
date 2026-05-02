@@ -1,63 +1,106 @@
 "use client";
 
 import { cn } from "@repo/ui";
+import { DateRangePicker } from "./date-range-picker";
+import type { DateRangeKey } from "@/app/_lib/date-range";
 
 /**
- * Stats strip for the agent queue header. Mockup lines 79–100:
- * To Call (paratus blue), Completed (emerald-500), Converted (amber-500),
- * Callbacks (orange-500). 4 cards on lg+, 2 on mobile.
+ * Stats strip for the agent queue header (plan 03-04 shape):
  *
- * `stats` is null when the agent_today_stats view returned no row (only
- * possible if RLS hides every row, e.g. an HQ admin "observing" — see
- * page.tsx empty-state explainer). In that case all counters render 0.
+ *   To Call (live, paratus-blue)
+ *   Follow-ups (live, orange-500)
+ *   Converted (range-aware, emerald-500 — gamification anchor with green ring)
+ *   Lost (range-aware, slate-500)
+ *
+ * The range picker sits to the right on desktop and stacks below on mobile.
+ *
+ * Counts come split: live counts arrive from agent_today_stats; range counts
+ * arrive from agent_stats_in_range. The page server-fetches both and passes
+ * pre-resolved values down so this component is purely presentational.
  */
 
-export interface QueueStatsData {
-  to_call_count: number | null;
-  completed_today: number | null;
-  converted_today: number | null;
-  callbacks_pending: number | null;
+export interface QueueStatsLiveData {
+  to_call_count: number;
+  follow_ups_count: number;
+}
+
+export interface QueueStatsRangeData {
+  converted_count: number;
+  lost_count: number;
 }
 
 interface QueueStatsProps {
-  stats: QueueStatsData | null;
+  live: QueueStatsLiveData;
+  range: QueueStatsRangeData;
+  rangeKey: DateRangeKey;
+  rangeLabel: string;
 }
 
-const ITEMS = [
-  { key: "to_call", label: "To Call", colorClass: "text-[#2B479B]" },
-  { key: "completed", label: "Completed", colorClass: "text-emerald-500" },
-  { key: "converted", label: "Converted", colorClass: "text-amber-500" },
-  { key: "callbacks", label: "Callbacks", colorClass: "text-orange-500" },
-] as const;
+interface StatTile {
+  key: "to_call" | "follow_ups" | "converted" | "lost";
+  label: string;
+  numberClass: string;
+  ring?: string;
+}
 
-export function QueueStats({ stats }: QueueStatsProps) {
-  const values: Record<(typeof ITEMS)[number]["key"], number> = {
-    to_call: stats?.to_call_count ?? 0,
-    completed: stats?.completed_today ?? 0,
-    converted: stats?.converted_today ?? 0,
-    callbacks: stats?.callbacks_pending ?? 0,
+const TILES: StatTile[] = [
+  { key: "to_call", label: "To Call", numberClass: "text-[#2B479B]" },
+  { key: "follow_ups", label: "Follow-ups", numberClass: "text-orange-500" },
+  {
+    key: "converted",
+    label: "Converted",
+    numberClass: "text-emerald-500",
+    ring: "ring-2 ring-emerald-100",
+  },
+  { key: "lost", label: "Lost", numberClass: "text-slate-500" },
+];
+
+export function QueueStats({
+  live,
+  range,
+  rangeKey,
+  rangeLabel,
+}: QueueStatsProps) {
+  const values: Record<StatTile["key"], number> = {
+    to_call: live.to_call_count,
+    follow_ups: live.follow_ups_count,
+    converted: range.converted_count,
+    lost: range.lost_count,
   };
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-      {ITEMS.map((item) => (
-        <div
-          key={item.key}
-          className="bg-white rounded-xl border border-slate-200 px-4 py-3 sm:px-5 sm:py-4"
-        >
-          <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
-            {item.label}
-          </p>
-          <p
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase">
+          Showing <span className="text-slate-600">{rangeLabel}</span> for
+          Converted &amp; Lost
+        </p>
+        <DateRangePicker currentKey={rangeKey} currentLabel={rangeLabel} />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        {TILES.map((tile) => (
+          <div
+            key={tile.key}
+            data-tile={tile.key}
             className={cn(
-              "text-3xl font-bold tabular-nums",
-              item.colorClass,
+              "bg-white rounded-xl border border-slate-200 px-4 py-3 sm:px-5 sm:py-4",
+              tile.ring,
             )}
           >
-            {values[item.key]}
-          </p>
-        </div>
-      ))}
+            <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
+              {tile.label}
+            </p>
+            <p
+              className={cn(
+                "text-3xl font-bold tabular-nums",
+                tile.numberClass,
+              )}
+            >
+              {values[tile.key]}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

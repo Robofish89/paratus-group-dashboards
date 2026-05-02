@@ -10,12 +10,17 @@ export type { AppendEventInput, LeadEventType } from './events';
 
 export {
   getAgentQueue,
+  getAgentFollowUps,
   getAgentCompletedToday,
+  getAgentConvertedInRange,
+  getAgentLostInRange,
   getAgentTodayStats,
   getAgentCallbacksDue,
+  getAgentStatsInRange,
   markLeadContacted,
   completeCall,
   scheduleCallback,
+  recordNoAnswer,
 } from './queue';
 export type {
   QueueLead,
@@ -24,4 +29,6 @@ export type {
   MarkLeadContactedResult,
   CompleteCallResult,
   ScheduleCallbackResult,
+  RecordNoAnswerResult,
+  AgentStatsInRangeResult,
 } from './queue';

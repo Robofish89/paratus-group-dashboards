@@ -4,7 +4,7 @@
 //     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     | jq -r '.types' > packages/supabase/src/types/database.ts
 //
-// Last generated: 2026-05-01 (plan 03-01, project tgswsdfaszvztbpczfve)
+// Last generated: 2026-05-01 (plan 03-04, project tgswsdfaszvztbpczfve)
 // Migration files reflected in this regen:
 //   00001_rbac_schema.sql
 //   00002_allow_auth_admin_read_user_roles.sql
@@ -15,6 +15,9 @@
 //   00007_assignment_function.sql
 //   00008_realtime_broadcast.sql
 //   00009_queue_rpcs.sql        (plan 03-01)
+//   00010_queue_ux_redesign.sql (plan 03-04 — call_attempts/last_outcome,
+//                                view rewrite, record_no_answer +
+//                                agent_stats_in_range RPCs)
 
 export type Json =
   | string
@@ -238,6 +241,7 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string | null
+          call_attempts: number
           converted_at: string | null
           country_code: string
           created_at: string
@@ -245,6 +249,7 @@ export type Database = {
           first_contacted_at: string | null
           form_slug: string
           id: string
+          last_outcome: string | null
           lost_at: string | null
           lost_reason: string | null
           message: string | null
@@ -262,6 +267,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          call_attempts?: number
           converted_at?: string | null
           country_code: string
           created_at?: string
@@ -269,6 +275,7 @@ export type Database = {
           first_contacted_at?: string | null
           form_slug: string
           id?: string
+          last_outcome?: string | null
           lost_at?: string | null
           lost_reason?: string | null
           message?: string | null
@@ -286,6 +293,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          call_attempts?: number
           converted_at?: string | null
           country_code?: string
           created_at?: string
@@ -293,6 +301,7 @@ export type Database = {
           first_contacted_at?: string | null
           form_slug?: string
           id?: string
+          last_outcome?: string | null
           lost_at?: string | null
           lost_reason?: string | null
           message?: string | null
@@ -406,10 +415,11 @@ export type Database = {
       agent_today_stats: {
         Row: {
           agent_id: string | null
-          callbacks_pending: number | null
-          completed_today: number | null
           converted_today: number | null
           country_code: Database["public"]["Enums"]["country_code"] | null
+          done_today: number | null
+          follow_ups_count: number | null
+          lost_today: number | null
           to_call_count: number | null
         }
         Relationships: []
@@ -508,6 +518,10 @@ export type Database = {
       }
     }
     Functions: {
+      agent_stats_in_range: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       assign_lead: {
         Args: { p_country: string; p_lead_id: string }
         Returns: string
@@ -524,6 +538,7 @@ export type Database = {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       ingest_lead: { Args: { payload: Json }; Returns: Json }
       mark_lead_contacted: { Args: { p_lead_id: string }; Returns: Json }
+      record_no_answer: { Args: { p_lead_id: string }; Returns: Json }
       schedule_callback: {
         Args: { p_lead_id: string; p_notes?: string; p_scheduled_for: string }
         Returns: Json

@@ -9,172 +9,227 @@ import {
 } from "../test-support/helpers";
 
 /**
- * Phase 3 plan 03-03 — Speed-to-lead golden path.
+ * Phase 3 plan 03-04 — Sales-rep golden paths (rewritten for the inline
+ * outcome buttons + Follow-ups tab + new vocabulary).
  *
- * Single-test E2E spec. Strategy:
- *   1. Authenticate as the MZ agent via the test-only `/api/e2e-login`
- *      route (POST sets the SSR session cookies; the route returns 404 unless
- *      E2E_AUTH_ENABLED=true is set on the dev server's env).
- *   2. Open `/mz/queue` and capture the initial To Call count from the stats
- *      strip.
- *   3. POST a fresh signed lead at country_code='MZ' via the production
- *      `/api/leads/ingest` webhook. Round-robin assigns it to this agent
- *      (only active MZ agent).
- *   4. Wait up to 5s for a card carrying that lead's id to appear (selector:
- *      [data-action="call-lead"][data-lead-id="<id>"], with the parent card
- *      flashed `data-fresh="true"`).
- *   5. Click the card's Call Now → assert the modal opens with the lead name.
- *   6. Pick "Qualified", type a note, submit → modal closes, lead disappears
- *      from To Call, "Completed" stat increments by 1.
- *   7. Teardown: service-role delete the seeded lead + its lead_events +
- *      callbacks.
+ * Three tests:
+ *   1. Tab labels match the new vocabulary (To Call · Follow-ups ·
+ *      Converted · Lost).
+ *   2. Converted golden path: ingest → realtime card → Call → Converted →
+ *      assert lead lands in Converted tab + Converted tile increments.
+ *   3. No-answer 3× → lead routes to Follow-ups tab with Try-again CTA.
  *
- * The trace artefact lands under `apps/web/e2e/test-results/` on failure.
+ * The seeded test leads are torn down via service-role in afterEach so
+ * tests don't bleed state into each other.
+ *
+ * Pre-conditions for the dev server: port 3012, E2E_AUTH_ENABLED=true,
+ * migration 00010 applied to the live Supabase project.
  */
 
 function sign(body: string, secret: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
 
-async function getStatNumber(page: Page, label: string): Promise<number> {
-  // QueueStats renders 4 cards with their label as text content. Read the
-  // numeric sibling. Locator strategy: find the element with the label text,
-  // scope to its containing card, read the first <p|div> matching a numeric.
-  const card = page
-    .locator("div", { has: page.locator(`text="${label}"`) })
-    .first();
-  await card.waitFor({ state: "attached", timeout: 5000 });
-  const numericText = (await card.innerText()).match(/\b(\d+)\b/);
-  if (!numericText) throw new Error(`No numeric in stat card "${label}"`);
-  return Number(numericText[1]);
+async function getTileNumber(page: Page, tileKey: string): Promise<number> {
+  const tile = page.locator(`[data-tile="${tileKey}"]`);
+  await tile.waitFor({ state: "visible", timeout: 5000 });
+  const txt = (await tile.innerText()).match(/\b(\d+)\b/);
+  if (!txt) throw new Error(`No numeric in tile "${tileKey}"`);
+  return Number(txt[1]);
 }
 
 async function login(page: Page, email: string): Promise<void> {
-  // POST through the test-only login route. Playwright's request fixture
-  // shares its CookieJar with the BrowserContext, so the Set-Cookie headers
-  // land in the browser's storage state for subsequent navigations.
-  const res = await page.request.post("/api/e2e-login", {
-    data: { email },
-  });
+  const res = await page.request.post("/api/e2e-login", { data: { email } });
   if (res.status() !== 200) {
     const body = await res.text();
     throw new Error(
-      `Test login failed (${res.status()}). ` +
-        `Is E2E_AUTH_ENABLED=true set on the dev server? Body: ${body}`,
+      `Test login failed (${res.status()}). Is E2E_AUTH_ENABLED=true set on the dev server? Body: ${body}`,
     );
   }
 }
 
-test.describe.serial("Phase 3 — speed-to-lead golden path", () => {
-  let createdLeadId: string | null = null;
-  let agentId: string;
+async function ingestLead(suffix: string): Promise<{ leadId: string }> {
+  const submittedAt = new Date().toISOString();
+  const body = JSON.stringify({
+    form_slug: "starlink",
+    country_code: "MZ",
+    submitted_at: submittedAt,
+    name: `Playwright ${suffix} ${Date.now()}`,
+    email: `e2e-${suffix}-${Date.now()}@paratus.test`,
+    message: "phase 3 plan 04 e2e",
+  });
+  const res = await fetch(getIngestUrl(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Paratus-Signature": sign(body, getIngestSecret()),
+    },
+    body,
+  });
+  if (res.status !== 201) {
+    const text = await res.text();
+    throw new Error(`ingest failed ${res.status}: ${text}`);
+  }
+  const { lead_id } = (await res.json()) as { lead_id: string };
+  return { leadId: lead_id };
+}
 
+async function deleteLead(leadId: string): Promise<void> {
+  const admin = createServiceClient();
+  await admin.from("callbacks").delete().eq("lead_id", leadId);
+  await admin.from("lead_events").delete().eq("lead_id", leadId);
+  await admin.from("leads").delete().eq("id", leadId);
+}
+
+test.describe.serial("Phase 3 plan 04 — sales-rep golden paths", () => {
   test.beforeAll(async () => {
-    agentId = await getUserId(TEST_USERS.agentMz);
+    // Sanity: agent user exists.
+    await getUserId(TEST_USERS.agentMz);
   });
 
-  test.afterAll(async () => {
-    if (!createdLeadId) return;
-    const admin = createServiceClient();
-    await admin.from("callbacks").delete().eq("lead_id", createdLeadId);
-    await admin.from("lead_events").delete().eq("lead_id", createdLeadId);
-    await admin.from("leads").delete().eq("id", createdLeadId);
-  });
-
-  test("agent receives lead via realtime, calls, qualifies, stats update", async ({
+  test("tab labels render the new vocabulary (To Call · Follow-ups · Converted · Lost)", async ({
     page,
   }) => {
-    // 1. Sign the agent in.
     await login(page, TEST_USERS.agentMz);
-
-    // 2. Land on queue page.
     await page.goto("/mz/queue");
-    await expect(page.getByText("Call Queue")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(page.getByText("Call Queue")).toBeVisible({ timeout: 10_000 });
 
-    // Wait for the realtime channel to finish its SUBSCRIBED handshake — the
-    // queue-view exposes its private-broadcast status as data-realtime-status
-    // on the root. Without this, ingest broadcasts that fire before the
-    // channel is joined are silently dropped (same hazard documented in
-    // tests/realtime.broadcast.test.ts).
+    // Use a strict role-and-name match anchored on the rendered <button>
+    // children of the TabBar. We don't depend on counts because they're
+    // dynamic across runs.
+    await expect(
+      page.getByRole("button", { name: /^To Call/ }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Follow-ups/ }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Converted/ }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Lost/ }).first(),
+    ).toBeVisible();
+  });
+
+  test("converted path: ingest → call → converted → tile +1", async ({
+    page,
+  }) => {
+    await login(page, TEST_USERS.agentMz);
+    await page.goto("/mz/queue?range=today");
+
+    // Realtime channel must be SUBSCRIBED before we ingest, or the broadcast
+    // arrives before the subscription is up and the card never lands.
     await expect(page.locator('[data-testid="queue-view"]')).toHaveAttribute(
       "data-realtime-status",
       "SUBSCRIBED",
-      { timeout: 10_000 },
+      { timeout: 15_000 },
     );
 
-    const initialCompleted = await getStatNumber(page, "Completed");
+    const initialConverted = await getTileNumber(page, "converted");
 
-    // 3. Fire a signed lead at the public webhook. The webhook path emits an
-    //    `UPDATE` broadcast on assigned_to flip — the queue's
-    //    useAgentBroadcast subscriber handles either op.
-    const submittedAt = new Date().toISOString();
-    const body = JSON.stringify({
-      form_slug: "starlink",
-      country_code: "MZ",
-      submitted_at: submittedAt,
-      name: `Playwright ${Date.now()}`,
-      email: `e2e-${Date.now()}@paratus.test`,
-      message: "phase 3 e2e golden path",
-    });
-    const ingestRes = await fetch(getIngestUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Paratus-Signature": sign(body, getIngestSecret()),
-      },
-      body,
-    });
-    expect(ingestRes.status).toBe(201);
-    const ingestJson = (await ingestRes.json()) as {
-      lead_id: string;
-      agent_id: string | null;
-    };
-    createdLeadId = ingestJson.lead_id;
-    expect(ingestJson.agent_id).toBe(agentId);
+    const { leadId } = await ingestLead("converted");
+    try {
+      // Card lands within 5s.
+      const callButton = page.locator(
+        `[data-action="call-lead"][data-lead-id="${leadId}"]`,
+      );
+      await expect(callButton).toBeVisible({ timeout: 5000 });
 
-    // 4. New card lands within 5s. Selector targets the Call Now button
-    //    bound to that lead id.
-    const callButton = page.locator(
-      `[data-action="call-lead"][data-lead-id="${createdLeadId}"]`,
+      // Card flashes fresh.
+      const freshCard = page.locator(
+        `[data-fresh="true"][data-lead-id="${leadId}"]`,
+      );
+      await expect(freshCard).toBeVisible({ timeout: 1000 });
+
+      // Tap Call → mid-call state shows three pills + No-answer link.
+      await callButton.click();
+      const cardScope = page.locator(`[data-lead-id="${leadId}"]`);
+      await expect(
+        cardScope.locator('[data-action="converted"]'),
+      ).toBeVisible({ timeout: 5000 });
+      await expect(cardScope.locator('[data-action="lost"]')).toBeVisible();
+      await expect(
+        cardScope.locator('[data-action="callback"]'),
+      ).toBeVisible();
+      await expect(
+        cardScope.locator('[data-action="no-answer"]'),
+      ).toBeVisible();
+
+      // Tap Converted.
+      await cardScope.locator('[data-action="converted"]').click();
+
+      // Card disappears from To Call list (the call-lead button no longer
+      // exists for this lead in the active tab).
+      await expect(callButton).not.toBeVisible({ timeout: 5000 });
+
+      // Converted tile +1.
+      await expect
+        .poll(() => getTileNumber(page, "converted"), { timeout: 8000 })
+        .toBe(initialConverted + 1);
+    } finally {
+      await deleteLead(leadId);
+    }
+  });
+
+  test("no-answer 3× routes the lead to Follow-ups with a Try again CTA", async ({
+    page,
+  }) => {
+    await login(page, TEST_USERS.agentMz);
+    await page.goto("/mz/queue");
+
+    await expect(page.locator('[data-testid="queue-view"]')).toHaveAttribute(
+      "data-realtime-status",
+      "SUBSCRIBED",
+      { timeout: 15_000 },
     );
-    await expect(callButton).toBeVisible({ timeout: 5000 });
 
-    // The parent card should carry data-fresh="true" for the 4-second flash.
-    const card = page.locator(
-      `[data-fresh="true"]:has([data-lead-id="${createdLeadId}"])`,
-    );
-    await expect(card).toBeVisible({ timeout: 1000 });
+    const { leadId } = await ingestLead("no-answer-3x");
+    try {
+      const callButton = page.locator(
+        `[data-action="call-lead"][data-lead-id="${leadId}"]`,
+      );
+      await expect(callButton).toBeVisible({ timeout: 5000 });
 
-    // 5. Click Call Now. Modal opens with the lead name.
-    await callButton.click();
-    const modal = page.getByRole("dialog", { name: "Complete Call" });
-    await expect(modal).toBeVisible();
-    await expect(
-      modal.getByText(/Playwright \d+/),
-    ).toBeVisible();
+      // Three call → no-answer cycles.
+      for (let i = 1; i <= 3; i += 1) {
+        await page
+          .locator(`[data-action="call-lead"][data-lead-id="${leadId}"]`)
+          .click();
+        await expect(
+          page.locator(
+            `[data-lead-id="${leadId}"] [data-action="no-answer"]`,
+          ),
+        ).toBeVisible({ timeout: 5000 });
+        await page
+          .locator(`[data-lead-id="${leadId}"] [data-action="no-answer"]`)
+          .click();
+        // Wait for the busy state to clear before the next cycle.
+        await expect
+          .poll(
+            async () => {
+              const attemptsAttr = await page
+                .locator(`[data-lead-id="${leadId}"]`)
+                .first()
+                .getAttribute("data-attempts");
+              return Number(attemptsAttr ?? -1);
+            },
+            { timeout: 8000 },
+          )
+          .toBeGreaterThanOrEqual(i);
+      }
 
-    // 6. Pick "Qualified" + notes + submit.
-    await modal
-      .locator("#call-outcome-select")
-      .selectOption("qualified");
-    await modal
-      .locator("#call-outcome-notes")
-      .fill("playwright e2e");
-    await modal.getByRole("button", { name: "Submit" }).click();
+      // After 3 no-answers, the lead is no longer in To Call.
+      await expect(callButton).not.toBeVisible({ timeout: 5000 });
 
-    // Modal closes.
-    await expect(modal).not.toBeVisible({ timeout: 5000 });
-
-    // The card should no longer be in To Call.
-    await expect(callButton).not.toBeVisible({ timeout: 5000 });
-
-    // "Completed" stat increments by 1 after router.refresh() resolves.
-    await expect
-      .poll(() => getStatNumber(page, "Completed"), {
-        timeout: 8000,
-      })
-      .toBe(initialCompleted + 1);
+      // Switch to Follow-ups tab; lead is there with a Try again CTA.
+      await page.getByRole("button", { name: /^Follow-ups/ }).first().click();
+      const followUpButton = page.locator(
+        `[data-lead-id="${leadId}"] [data-action="call-lead"]`,
+      );
+      await expect(followUpButton).toBeVisible({ timeout: 5000 });
+      await expect(followUpButton).toContainText(/Try again/);
+    } finally {
+      await deleteLead(leadId);
+    }
   });
 });

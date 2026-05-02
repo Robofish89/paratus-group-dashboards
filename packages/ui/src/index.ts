@@ -89,12 +89,6 @@ export { StatusPipeline } from "./components/status-pipeline";
 export type { StatusPipelineProps, PipelineItem } from "./components/status-pipeline";
 export { CallbackCard, categorizeReason, REASON_BADGE_STYLES, CHANNEL_BADGE_STYLES } from "./components/callback-card";
 export type { CallbackCardProps } from "./components/callback-card";
-export { CallOutcomeModal } from "./components/call-outcome-modal";
-export type {
-  CallOutcomeModalProps,
-  CallOutcomeModalSubmit,
-  CallOutcome,
-} from "./components/call-outcome-modal";
 export { OutageCard, SEVERITY_BADGE_STYLES } from "./components/outage-card";
 export type { OutageCardProps } from "./components/outage-card";
 

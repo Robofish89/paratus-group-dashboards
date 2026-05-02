@@ -2,28 +2,18 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@repo/supabase/server";
-import { getCurrentUserClaims, completeCall } from "@repo/supabase/dal";
-import { completeCallInput } from "@repo/supabase/schemas/queue";
+import { getCurrentUserClaims, recordNoAnswer } from "@repo/supabase/dal";
+import { recordNoAnswerInput } from "@repo/supabase/schemas/queue";
 
 /**
- * Phase 3 queue route — POST /api/queue/complete.
+ * Phase 3 plan 04 queue route — POST /api/queue/no-answer.
  *
- * Thin wrapper over the `complete_call` RPC (migrations 00009 + 00010). The
- * RPC is SECURITY DEFINER and gates auth.uid() / country_code internally;
- * the defence-in-depth role check here keeps non-agents out at the route
- * layer.
+ * Thin wrapper over `record_no_answer` (migration 00010). The RPC is
+ * SECURITY DEFINER and gates auth.uid() / country_code internally; the
+ * defence-in-depth role check here keeps non-agents out at the route layer.
  *
- * Body: { lead_id, outcome, notes?, lost_reason? } — validated via
- *       completeCallInput Zod schema. Accepted outcomes (plan 03-04):
- *         - 'won'        → flips status to 'converted'
- *         - 'lost'       → flips status to 'lost' (lost_reason required)
- *         - 'no_answer'  → event-only (no status mutation)
- *         - 'callback'   → event-only; the actual callback row is written
- *                          by /api/queue/callback in a separate request
- *       'qualified' is rejected (Zod 400) — the UI collapses Qualified +
- *       Won into a single 'Converted' label at the surface layer.
- *
- * Returns: { lead_id, status, outcome } on 200; { error } on 4xx/5xx.
+ * Body: { lead_id: uuid }
+ * Returns: { lead_id, call_attempts } on 200; { error } on 4xx/5xx.
  */
 export const runtime = "nodejs";
 
@@ -52,7 +42,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const parsed = completeCallInput.safeParse(raw);
+  const parsed = recordNoAnswerInput.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.flatten() },
@@ -61,7 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const result = await completeCall(parsed.data);
+    const result = await recordNoAnswer(parsed.data.lead_id);
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "rpc failed";
@@ -70,9 +60,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     if (/lead_not_found/i.test(message)) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    if (/invalid_status/i.test(message)) {
-      return NextResponse.json({ error: "invalid_status" }, { status: 409 });
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }

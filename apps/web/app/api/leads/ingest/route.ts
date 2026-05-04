@@ -1,8 +1,9 @@
 import 'server-only';
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 import { ingestLead, isIngestLeadError } from '@repo/supabase/dal';
+import { ingestLimiter, safeLimit } from '@repo/supabase/lib/rate-limit';
 import { ingestSchema } from '@repo/supabase/schemas';
 
 /**
@@ -45,6 +46,35 @@ export async function POST(req: Request): Promise<Response> {
     if (!secret) {
       logError('PARATUS_INGEST_SECRET not set');
       return new Response('server misconfigured', { status: 500 });
+    }
+
+    // Rate-limit BEFORE secret/HMAC validation. Keying on a hash of the
+    // shared secret (rather than client IP) means the limit is per-tenant —
+    // n8n cloud egresses from a small IP pool that several tenants might
+    // share. Hashing keeps the secret out of Upstash logs/keys.
+    //
+    // The limit is applied on every call so 401 responses also count
+    // against the bucket — a probe that's hammering with the wrong secret
+    // gets the same 429 ceiling as a runaway integration. That keeps the
+    // headers stable on 401 and avoids leaking secret-validity via
+    // rate-limit timing.
+    const ingestKey = createHash('sha256').update(secret).digest('hex');
+    const { success, limit, reset } = await safeLimit(
+      ingestLimiter,
+      ingestKey,
+      'ingest',
+    );
+    if (!success) {
+      const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+      return new Response('Rate limited', {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': String(limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(reset),
+          'Retry-After': String(retryAfter),
+        },
+      });
     }
 
     // 1. Read raw body ONCE — must precede any JSON parse so the bytes match

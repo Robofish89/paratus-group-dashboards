@@ -1,11 +1,11 @@
 import 'server-only';
 
-// RLS BYPASS: createServiceRoleClient() authenticates as the service_role
+// RLS BYPASS: createAdminClient() authenticates as the service_role
 // Postgres role, bypassing ALL Row Level Security on every table and view.
-// Phase 3 (call outcomes) will use this to insert lead_events on behalf of
+// Phase 3 (call outcomes) uses this to insert lead_events on behalf of
 // agents whose JWT-side INSERT path is fine for normal events but needs the
 // bypass for system-emitted events (e.g. assignment, status_change from RPCs).
-import { createServiceRoleClient } from '../server';
+import { createAdminClient } from '../admin';
 import type { Database } from '../types/database';
 
 /**
@@ -32,7 +32,7 @@ export interface AppendEventInput {
  * inside the RPC.
  */
 export async function appendEvent(input: AppendEventInput): Promise<void> {
-  const supabase = createServiceRoleClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from('lead_events').insert({
     lead_id: input.lead_id,
     actor_id: input.actor_id,

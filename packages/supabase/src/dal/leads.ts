@@ -1,12 +1,12 @@
 import 'server-only';
 
-// RLS BYPASS: createServiceRoleClient() authenticates as the service_role
+// RLS BYPASS: createAdminClient() authenticates as the service_role
 // Postgres role, bypassing ALL Row Level Security on every table and view.
 // Used here because `ingest_lead(jsonb)` has its EXECUTE grant restricted to
 // service_role (REVOKE FROM public/anon/authenticated in migration 00007), so
 // only a service-role client can call it. The webhook caller has already been
 // authenticated by HMAC before this DAL is reached.
-import { createServiceRoleClient } from '../server';
+import { createAdminClient } from '../admin';
 import type { IngestInput } from '../schemas/ingest';
 
 /**
@@ -52,7 +52,7 @@ export function isIngestLeadError(
  * payload and surface the result.
  */
 export async function ingestLead(input: IngestInput): Promise<IngestLeadResult> {
-  const supabase = createServiceRoleClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc('ingest_lead', {
     payload: input,
   });

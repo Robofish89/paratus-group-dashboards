@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@repo/supabase/server";
 // RLS BYPASS: service_role admin client. Required to call `auth.admin.generateLink`
 // (privileged-only). Reachable only behind the E2E_AUTH_ENABLED guard below.
-import { createServiceRoleClient } from "@repo/supabase/server";
+import { createAdminClient } from "@repo/supabase/admin";
 
 /**
  * Test-only auth bridge — Phase 3 plan 03-03 Playwright golden path.
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // RLS BYPASS: service_role admin mints the magic link (privileged API).
-  const admin = createServiceRoleClient();
+  const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: parsed.data.email,

@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { authLimiter, safeLimit } from "@repo/supabase/lib/rate-limit";
 import {
   countryCodeToSlug,
   isCountrySlug,
@@ -21,6 +22,12 @@ const PUBLIC_PATHS = new Set<string>([
   // branch below redirects POST /api/auth/logout to /<cc>/queue and
   // the user never gets signed out.
   "/api/auth/logout",
+  // SLA breach cron — bearer-secret authenticated, never cookie-authed.
+  // Vercel's scheduler invokes this with `Authorization: Bearer ${CRON_SECRET}`.
+  // Mirrors the lead-ingest prefix bypass below; without this entry the
+  // proxy redirects the cron to /login and the per-minute scan silently
+  // no-ops.
+  "/api/cron/sla-check",
   // Lead-ingest API routes (`/api/leads/*`) are handled by the prefix
   // bypass below — each route does its own auth (HMAC for the webhook,
   // cookie session for the importer). No per-path entry needed here.
@@ -90,7 +97,57 @@ function pathCountrySlug(pathname: string): string | null {
   return match ? match[1]! : null;
 }
 
+/**
+ * Auth-flow paths that get IP-keyed rate limiting in front of the
+ * Supabase cookie-session refresh. Brute-forcing /login or hammering
+ * /auth/callback shouldn't burn Supabase requests — bounce at the proxy.
+ *
+ * Excluded deliberately:
+ *   • /api/auth/logout — logout is intent-revealing but harmless; should
+ *     not be capped (bouncing off it traps a user mid-session).
+ *   • /api/leads/* — these have their own per-secret limiter inside
+ *     each route (HMAC-keyed for the webhook, cookie-keyed for the
+ *     CSV importer). Double-limiting would burn budget for no extra
+ *     defence — auth-path limit is strictly for sessionless callers.
+ */
+function isRateLimitedAuthPath(pathname: string, method: string): boolean {
+  if (pathname === "/login") return true;
+  if (pathname === "/auth/callback") return true;
+  if (pathname === "/auth/reset") return true;
+  if (pathname.startsWith("/api/auth/") && method === "POST") {
+    return pathname !== "/api/auth/logout";
+  }
+  return false;
+}
+
 export async function proxy(request: NextRequest) {
+  // Rate-limit FIRST — before any Supabase round-trip. A flooded auth
+  // path shouldn't burn cookie-refresh requests. IP key from
+  // x-forwarded-for; Vercel populates this with the originating client IP
+  // (first entry in the comma-separated list).
+  if (isRateLimitedAuthPath(request.nextUrl.pathname, request.method)) {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    const { success, limit, reset } = await safeLimit(
+      authLimiter,
+      ip,
+      "auth",
+    );
+    if (!success) {
+      const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+      return new NextResponse("Rate limited", {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(reset),
+          "Retry-After": String(retryAfter),
+        },
+      });
+    }
+  }
+
   const supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

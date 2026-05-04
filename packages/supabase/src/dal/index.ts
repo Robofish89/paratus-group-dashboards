@@ -2,7 +2,13 @@
 // `import 'server-only'`; importing this barrel from a client component will
 // produce a build error at compile time (the desired behaviour).
 
-export { getCurrentUserClaims, getUserRoleRow } from './users';
+export {
+  getCurrentUserClaims,
+  getUserRoleRow,
+  getCountryAdminEmails,
+  getAgentDisplayName,
+  getCountryName,
+} from './users';
 export { ingestLead, isIngestLeadError } from './leads';
 export type { IngestLeadResult, IngestLeadSuccess, IngestLeadError } from './leads';
 export { appendEvent } from './events';
@@ -69,6 +75,9 @@ export type {
   GroupSpeedToLeadDay,
   ResponseStatus,
 } from './group';
+
+export { getOpenBreaches, markBreachAlerted } from './sla';
+export type { BreachLead } from './sla';
 
 export {
   recordAudit,

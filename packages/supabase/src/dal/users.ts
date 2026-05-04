@@ -95,3 +95,76 @@ export async function getUserRoleRow(userId: string): Promise<UserRoleRow | null
   if (error || !data) return null;
   return data as UserRoleRow;
 }
+
+/**
+ * Active country-admin email addresses for a country, used by the SLA cron to
+ * pick recipients for breach alerts. Service-role read because the cron runs
+ * with no cookie session (Vercel scheduler → bearer secret). Joins
+ * `user_roles` filtered to `role='country_admin' AND country_code=$1 AND
+ * is_active=true` against `auth.users` via the admin client. Returns an empty
+ * array when no admins are seated in the country (the cron logs and skips).
+ */
+export async function getCountryAdminEmails(countryCode: string): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data: roles, error: rolesErr } = await admin
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'country_admin')
+    .eq('country_code', countryCode)
+    .eq('is_active', true);
+
+  if (rolesErr) {
+    throw new Error(
+      `getCountryAdminEmails(${countryCode}) user_roles read failed: ${rolesErr.message}`,
+    );
+  }
+  if (!roles || roles.length === 0) return [];
+
+  // No bulk "fetch users by id" in supabase-js admin API; listUsers + filter
+  // is the documented technique. perPage=200 covers Phase 6 capacity (12
+  // active countries × ~3 admins each = ~36 max).
+  const { data: usersPage, error: usersErr } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 200,
+  });
+  if (usersErr) {
+    throw new Error(
+      `getCountryAdminEmails(${countryCode}) listUsers failed: ${usersErr.message}`,
+    );
+  }
+  const wanted = new Set(roles.map((r) => r.user_id));
+  return usersPage.users
+    .filter((u) => wanted.has(u.id) && typeof u.email === 'string' && u.email.length > 0)
+    .map((u) => u.email as string);
+}
+
+/**
+ * Display name for an agent (drives the "Assigned to" line in SLA emails).
+ * Returns `null` when the agent isn't seated or the row has no display_name.
+ */
+export async function getAgentDisplayName(userId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('user_roles')
+    .select('display_name')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data.display_name as string | null) ?? null;
+}
+
+/**
+ * Country name (e.g. 'Mozambique') for a country code. Used to render a
+ * human-readable country label in SLA emails when the cron-side cache is
+ * empty.
+ */
+export async function getCountryName(countryCode: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('countries')
+    .select('name')
+    .eq('code', countryCode)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data.name as string | null) ?? null;
+}

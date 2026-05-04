@@ -8,6 +8,15 @@ import { resolve } from "node:path";
 loadEnv({ path: resolve(__dirname, ".env.local") });
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // The `server-only` shim throws on import outside an RSC graph (Next's
+      // build-time guard). Vitest runs in plain Node, so we alias it to a
+      // no-op module. The runtime-time guarantee is unchanged in production —
+      // Webpack/Turbopack still enforces the boundary at build time.
+      "server-only": resolve(__dirname, "test-support/server-only-shim.ts"),
+    },
+  },
   test: {
     environment: "node",
     testTimeout: 20000,

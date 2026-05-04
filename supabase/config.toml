@@ -1,0 +1,63 @@
+# Supabase local development config.
+#
+# Used by the hermetic vitest setup at apps/web/vitest.global-setup.ts
+# (`npx supabase start`). The cloud project (`tgswsdfaszvztbpczfve`) is
+# unaffected — `supabase start` only spins up local containers.
+#
+# project_id pinned to `paratus-group-dashboards` so the CLI's port-derivation
+# scheme doesn't collide with another project's local stack on the same Mac
+# (Phase 6 RESEARCH pitfall 6).
+
+project_id = "paratus-group-dashboards"
+
+[api]
+enabled = true
+port = 54421
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54422
+shadow_port = 54423
+major_version = 15
+
+[db.seed]
+# Seeds run after migrations on `supabase start` / `db reset`. Two-file split:
+#   01_test_users.sql      — auth.users + public.user_roles for the 3 test users
+#   02_test_reference.sql  — sanity check (00004 already seeds countries/forms)
+enabled = true
+sql_paths = ["./seed/01_test_users.sql", "./seed/02_test_reference.sql"]
+
+[realtime]
+enabled = true
+port = 54424
+
+[studio]
+enabled = true
+port = 54425
+
+[inbucket]
+enabled = true
+port = 54426
+
+[auth]
+enabled = true
+port = 54427
+site_url = "http://localhost:3012"
+additional_redirect_urls = ["http://localhost:3012/**"]
+jwt_expiry = 3600
+enable_signup = false
+# Pin to the same custom-access-token hook the cloud project uses (00001).
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+[storage]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

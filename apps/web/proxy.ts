@@ -90,7 +90,7 @@ function pathCountrySlug(pathname: string): string | null {
   return match ? match[1]! : null;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

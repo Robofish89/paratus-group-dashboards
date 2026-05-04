@@ -277,27 +277,15 @@ test.describe.serial("Phase 4 plan 04 — country admin golden paths", () => {
     const payload = (events?.[0]?.payload ?? {}) as { to_agent_id?: string };
     expect(payload.to_agent_id).toBe(mzAgentId);
 
-    // KNOWN-BUG ASSERTION (logged for the 04-04 visual checkpoint):
-    // The list view's `assigned_to_name` cell is built from
-    // `getCountryAgents(country)`, which is a cookie-authed read against
-    // user_roles. Phase 1 RLS only lets users read their own user_roles row
-    // OR HQ admins read every row — country admins get an empty result, so
-    // the agent lookup map is empty AND the cell renders "Unassigned" even
-    // when `assigned_to` is in fact set.
-    //
-    // The fix is a single SELECT policy:
-    //   `country_admin reads user_roles WHERE country_code = jwt.country_code`.
-    // It's logged in the SUMMARY for the user to authorise (RLS migration
-    // touches shared infra — needs explicit sign-off).
-    //
-    // This assertion documents the broken state. When the policy lands,
-    // flip the assertion to `.not.toContainText("Unassigned")`.
+    // After migration 00012, country admins can SELECT user_roles rows in
+    // their country, so getCountryAgents() resolves and the lead-list cell
+    // renders the assigned agent's name instead of "Unassigned".
     await page.goto("/mz/leads?status=new");
     const assignedCell = page.locator(
       `[data-testid="lead-list-row-${leadId}-assigned-to"]`,
     );
     await expect(assignedCell).toBeVisible({ timeout: 10_000 });
-    await expect(assignedCell).toContainText("Unassigned");
+    await expect(assignedCell).not.toContainText("Unassigned");
   });
 
   test("CSV export — filtered download has correct headers + every row is MZ + status=new", async ({

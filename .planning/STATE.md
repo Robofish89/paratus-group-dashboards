@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
 current_phase: 05-hq-overview
-current_plan: 02
+current_plan: 03
 plan_status: shipped
-next_plan: 05-03
+next_plan: 06-01
 ---
 
 # Project State
@@ -18,7 +18,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
-| 05-hq-overview | in progress (plans 05-01 + 05-02 shipped 2026-05-04) | 2026-05-04 |
+| 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
 
@@ -63,7 +63,9 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 |------|-----------|--------|---------|
 | 05-01 | HQ overview DB foundation — 3 views + 1 RPC + 1 broadcast trigger + 1 RLS policy + 8 vitest cases | shipped | `05-01-SUMMARY.md` |
 | 05-02 | DAL + Zod + 4 React components + page composition + 6 vitest cases | shipped | `05-02-SUMMARY.md` |
-| 05-03 | UI components + visual checkpoint | pending | – |
+| 05-03 | Playwright golden path + sidebar stubs + visual checkpoint | shipped | `05-03-SUMMARY.md` |
+
+Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 
 ## Key decisions still in force
 
@@ -135,9 +137,16 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 - **Plan 05-02 — country leaderboard drill-in is `<Link href='/<slug>'>` on the country name only.** Phase 4 plan 04-03 already wired the country-admin layout to accept `hq_admin` — drill-in Just Works. Future Phase 6 tightening MUST keep `hq_admin` in that allow-list.
 - **Plan 05-02 — `<SpeedToLeadTrendCard>` uses paratus-blue (#2B479B) gradient + Recharts AreaChart with `<ReferenceLine y={RESPONSE_STATUS_THRESHOLDS.green}>`.** Country-admin's per-country chart uses emerald (matches the gauge tile); group-wide HQ chart uses paratus-blue (matches "Total Leads (Group)" tile and the mockup). Same chart primitive; different colour family.
 - **Plan 05-02 — HQ overview page is a Server Component; broadcasts subscribe at the leaf.** `Promise.all` over 4 reads in the page; only `<KpiStrip>` opens a websocket via `useGroupBroadcast`. Same pattern Phase 4 locked: server-fetched truth + leaf-level optimistic bumps + `router.refresh()` on every event.
+- **Plan 05-03 — `<KpiStrip>` exposes `data-realtime-status`** for E2E gating, mirroring the `(sales-rep)/_components/queue-view.tsx` pattern from Phase 3. The HQ realtime test waits for `SUBSCRIBED` before ingesting; without this gate the broadcast lands before the client subscribes and the tile never bumps.
+- **Plan 05-03 — sidebar stubs are Phase 6 placeholders, not full surfaces.** `/countries`, `/service-mix`, `/settings` each render an `HQShell` + a single `<SectionCard>` describing what the surface will become. RESEARCH q5 resolved this — the canonical view of "Countries" today *is* the leaderboard on Overview; building it again would duplicate.
+- **Plan 05-03 — visual checkpoint deviations all accepted under "cross-dashboard congruence wins" + project-scope corrections + RESEARCH-resolved questions.** Six points of divergence between mockup and shipped surface; zero genuine drift. Full table in `05-03-SUMMARY.md`.
+- **Plan 05-03 — drive-by fix on sales-rep `tab labels` test.** The assertion was `getByText('Call Queue')` but the page heading was renamed to `My Leads` in plan 03-04 polish (per the user's "agent copy voice" memory). Fixed to `getByRole('heading', { name: 'My Leads' })`. Caught by the close-out full-suite Playwright run.
 
 ## Recent commits (most recent first)
 
+- `e2e8a8f` — feat(05-03): HQ sidebar stub pages — Countries, Service Mix, Settings
+- `72d0125` — test(05-03): HQ overview Playwright golden path
+- `9aa0f08` — docs(05-02): close plan — SUMMARY + STATE update
 - `86d42db` — feat(05-02): compose HQ overview page on top of plan 05-01 surface
 - `27fef8f` — feat(05-02): HQ overview UI primitives — broadcast hook + 4 React cards
 - `61fb4b5` — feat(05-02): group DAL — Zod schemas, 4 reads, status-bucket helper
@@ -198,28 +207,35 @@ Clean. Untracked `.claude/` directory (local Claude Code config) and `excalidraw
 
 ## Next move
 
-**Plan 05-02 shipped.** HQ overview page now wired against migration 00013:
-- Group DAL with 4 typed reads + Zod schemas + `computeResponseStatus`/`RESPONSE_STATUS_THRESHOLDS` helper (in `schemas/group.ts` for client-component access, re-exported from `dal/group.ts`).
-- `useGroupBroadcast` thin wrapper pinned to `topic: 'group:all'`, `event: '*'`.
-- 4 React components: KPI strip (5 ring-around-card tiles, optimistic broadcast bumps), country leaderboard (12 rows, status dots, drill-in `<Link>`, legend), all-time leads-by-service horizontal-bar card, 7-day speed-to-lead Recharts AreaChart with 5-min reference line.
-- Live composition at `apps/web/app/(hq)/page.tsx` replacing the Phase 1 placeholder. `Promise.all` over 4 server reads; broadcast subscribes at the leaf.
-- 6/6 vitest cases green, 3 flake-free runs. Type-check + lint + production build clean.
+**Phase 5 sealed.** HQ overview surface is end-to-end:
+- Live overview at `/`: 5 KPI tiles, 12-row country leaderboard with status dots + drill-in to `/<country-slug>`, all-time leads-by-service breakdown, 7-day speed-to-lead trend chart.
+- Realtime: webhook ingest → `group:all` broadcast → KPI strip bumps without manual refresh. One trigger replaces 12 simultaneous per-country subscriptions per HQ tab.
+- Sidebar resolves cleanly on every link: Overview is live; Countries / Service Mix / Settings are Phase 6 placeholders explaining what each will become.
+- `phase-5-complete` tag staged locally; push pending explicit user approval (same posture as `phase-2`/`phase-3`/`phase-4`).
 
-Phase 4 remains shipped (`phase-4-complete` tag staged locally; push pending explicit user approval, same posture as `phase-2-complete` and `phase-3-complete`).
+**Plan 05-03 deliverables:**
+- 3 Playwright specs at `apps/web/e2e/hq-overview-golden-path.spec.ts` — render, drill-in, realtime — all green, 3 flake-free runs.
+- 2 Playwright specs at `apps/web/e2e/hq-stub-pages.spec.ts` — HQ admin sees Phase 6 placeholders, country admin → /unauthorized.
+- 3 sidebar stub pages — `(hq)/countries/page.tsx`, `(hq)/service-mix/page.tsx`, `(hq)/settings/page.tsx`.
+- `<KpiStrip>` exposes `data-realtime-status` so the realtime spec can wait for SUBSCRIBED before ingesting.
+- Visual checkpoint walked vs `docs/design-reference/hq-dashboard.html`. Six divergences logged; all six accepted (Phase 4 cross-dashboard congruence locks + RESEARCH-resolved questions + project-scope corrections).
+- Drive-by fix on sales-rep `tab labels` test (was asserting old "Call Queue" copy; now matches the "My Leads" heading from 03-04 polish).
 
-**Plan 05-03 — UI components + visual checkpoint** is next. Per 05-02 SUMMARY's "Visual fidelity items":
-- Pixel-level review vs `docs/design-reference/hq-dashboard.html` (mockup parity is non-negotiable).
-- Conversion Rate delta arrow decision (week-over-week vs month-over-month comparator).
-- Y-axis label format on the speed-to-lead trend (currently `m:ss`; mockup shows whole minutes).
-- Form-slug labels in `<LeadsByServiceCard>` — verify against the actual seeded slug values from migration 00004.
-- Playwright golden-path E2E for HQ overview (mirror Phase 4 plan 04-04's pattern).
+**Phase 6 — Production Hardening** is next. Run `/gsd:research-phase 6 → /gsd:plan-phase 6 → /gsd:execute-phase 6`. Suggested focus areas:
+- Pilot-country runbook (one country running 48h with real leads, no incidents).
+- Hermetic vitest setup (full-suite runs hit Supabase auth rate-limit today; chained suites fail intermittently).
+- Stat-tile component consolidation (`MetricCard` full-width top bar / queue-stats ring / kpi-strip ring → one shared component).
+- Pin `E2E_AUTH_ENABLED=true` into `.env.local.example`; document `.next/dev` cache restart cadence.
+- RLS deep-audit + InitPlan caching sweep (wrap `auth.jwt()` / `auth.uid()` in `(SELECT ...)` on Phase 1 + 5 policies).
+- Replace HQ sidebar stubs with real surfaces (drill-in directory / service mix over time / group admin settings).
 
 Carry-overs explicitly tracked into Phase 6:
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
-- Hermetic vitest setup (route-driven tests still need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
+- Hermetic vitest setup (route-driven tests need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
 - `createServiceRoleClient` and `createAdminClient` convergence.
 - Phase 1 `user_roles` policies wrapping for InitPlan caching symmetry — relevant now that 00012 has joined the file.
 - Offset → cursor pagination on the lead list view (use `(created_at, id)` cursor pair to break ties).
 - **From 04-04**: stat-tile component consolidation (3 patterns now exist: `MetricCard` full-width top bar, `queue-stats` ring, `kpi-strip` ring). Consolidate to one shared component.
 - **From 04-04**: range-picker UI on country-admin overview (overview honours `?range=` URL contract today; URL-only acceptable for v1, picker is a small polish lift).
 - **From 05-01**: explicit `REVOKE ALL ... FROM anon, authenticated` on the three `broadcast_lead_to_*` trigger functions; wrap `auth.jwt()` in `(SELECT ...)` for `hq_group_topic` and the other realtime.messages policies (InitPlan caching sweep).
+- **From 05-03**: pin `E2E_AUTH_ENABLED=true` in `.env.local.example`; document `.next/dev` cache restart in dev-server runbook; sales-rep `no-answer 3×` flake (`data-attempts` poll occasionally reads 2 not 3 within 8s — bump to 12s or instrument the broadcast-emit timing); replace HQ sidebar stubs with real surfaces; conversion-rate comparator window decision (week-over-week vs month-over-month).

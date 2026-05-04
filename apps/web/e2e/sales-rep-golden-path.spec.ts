@@ -92,7 +92,11 @@ test.describe.serial("Phase 3 plan 04 — sales-rep golden paths", () => {
   }) => {
     await login(page, TEST_USERS.agentMz);
     await page.goto("/mz/queue");
-    await expect(page.getByText("Call Queue")).toBeVisible({ timeout: 10_000 });
+    // Page heading is "My Leads" (set in plan 03-04 polish — copy-voice
+    // correction logged in user memory).
+    await expect(
+      page.getByRole("heading", { name: "My Leads" }),
+    ).toBeVisible({ timeout: 10_000 });
 
     // Use a strict role-and-name match anchored on the rendered <button>
     // children of the TabBar. We don't depend on counts because they're

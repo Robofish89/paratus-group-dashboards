@@ -53,12 +53,12 @@ function computeDelta(today: number | null, yesterday: number | null): DeltaResu
   };
 }
 
-const ACCENT_BARS = {
-  total: "#2B479B",
-  new_today: "#10b981",
-  contacted: "#3B82F6",
-  converted: "#F59E0B",
-  avg_response: "#10b981",
+const TONE = {
+  total: { number: "text-[#2B479B]", ring: "ring-2 ring-blue-100" },
+  new_today: { number: "text-emerald-500", ring: "ring-2 ring-emerald-100" },
+  contacted: { number: "text-blue-500", ring: "ring-2 ring-blue-100" },
+  converted: { number: "text-amber-500", ring: "ring-2 ring-amber-100" },
+  avg_response: { number: "text-emerald-500", ring: "ring-2 ring-emerald-100" },
 } as const;
 
 export function KpiStrip({
@@ -114,7 +114,7 @@ export function KpiStrip({
     {
       key: "total",
       label: "Total Leads",
-      accent: ACCENT_BARS.total,
+      tone: TONE.total,
       value: totalLeads.toLocaleString(),
       subtext: "All sources",
       delta: null as DeltaResult | null,
@@ -122,7 +122,7 @@ export function KpiStrip({
     {
       key: "new_today",
       label: "New Today",
-      accent: ACCENT_BARS.new_today,
+      tone: TONE.new_today,
       value: newToday.toLocaleString(),
       subtext: null,
       delta: newDelta,
@@ -130,7 +130,7 @@ export function KpiStrip({
     {
       key: "contacted",
       label: "Contacted",
-      accent: ACCENT_BARS.contacted,
+      tone: TONE.contacted,
       value: contactedToday.toLocaleString(),
       subtext: null,
       delta: contactedDelta,
@@ -138,7 +138,7 @@ export function KpiStrip({
     {
       key: "converted",
       label: "Converted",
-      accent: ACCENT_BARS.converted,
+      tone: TONE.converted,
       value: rangeConverted.toLocaleString(),
       subtext: null,
       delta: convertedDelta,
@@ -146,7 +146,7 @@ export function KpiStrip({
     {
       key: "avg_response",
       label: "Avg Response Time",
-      accent: ACCENT_BARS.avg_response,
+      tone: TONE.avg_response,
       value: avgResponseText,
       subtext: avgResponseOnTarget ? "Target: <5 min" : "Above 5 min target",
       delta: null,
@@ -160,18 +160,15 @@ export function KpiStrip({
           key={tile.key}
           data-testid={`kpi-strip-tile-${tile.key}`}
           className={cn(
-            "bg-white rounded-xl p-5 border border-slate-100 relative overflow-hidden",
+            "bg-white rounded-xl px-4 py-3 sm:px-5 sm:py-4 border border-slate-200",
             "transition-shadow duration-200 hover:shadow-md",
+            tile.tone.ring,
           )}
         >
-          <div
-            className="h-1 w-10 rounded-full mb-4"
-            style={{ backgroundColor: tile.accent }}
-          />
-          <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+          <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
             {tile.label}
           </p>
-          <p className="text-3xl font-bold text-slate-900 mt-1 tabular-nums">
+          <p className={cn("text-3xl font-bold tabular-nums", tile.tone.number)}>
             {tile.value}
           </p>
           {tile.delta ? (

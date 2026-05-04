@@ -2,17 +2,11 @@ import { cn } from "@repo/ui";
 import type { StatusPipelineTodayItem } from "@repo/supabase/dal";
 
 /**
- * Today's lead-status pipeline funnel. The DB returns five rows (one per
- * `lead_status` enum value, including `qualified` for analytics back-compat);
- * we render five segments with decreasing widths matching the visual contract
- * in `docs/design-reference/country-admin-dashboard.html`.
- *
- * Width derivation: each segment is width-scaled by its share of the
- * top-of-funnel ("new") count. The mockup hardcodes 100/85/60/40 — the live
- * implementation derives the same shape from data so an unbalanced country
- * still reads correctly.
- *
- * Min width 25% so a small segment is still readable.
+ * Today's lead-status pipeline funnel. Five segments — one per `lead_status`
+ * enum value (including `qualified` for analytics back-compat). The funnel
+ * shape is positional (100/88/76/64/52%) so it reads as a coherent funnel
+ * even when downstream segments are zero — the *count* communicates the data,
+ * the *width* communicates funnel position.
  */
 
 const SEGMENTS = [
@@ -62,6 +56,8 @@ interface StatusPipelineCardProps {
   items: StatusPipelineTodayItem[];
 }
 
+const POSITIONAL_WIDTHS = [100, 88, 76, 64, 52];
+
 export function StatusPipelineCard({ items }: StatusPipelineCardProps) {
   const counts = new Map<string, number>();
   for (const row of items) {
@@ -69,7 +65,6 @@ export function StatusPipelineCard({ items }: StatusPipelineCardProps) {
   }
 
   const newCount = counts.get("new") ?? 0;
-  const top = Math.max(newCount, 1); // avoid divide-by-zero
   const totalForPct = newCount > 0 ? newCount : 0;
 
   return (
@@ -98,9 +93,7 @@ export function StatusPipelineCard({ items }: StatusPipelineCardProps) {
       <div className="space-y-3">
         {SEGMENTS.map((seg, idx) => {
           const count = counts.get(seg.status) ?? 0;
-          const widthPct = idx === 0
-            ? 100
-            : Math.max(25, Math.min(100, (count / top) * 100));
+          const widthPct = POSITIONAL_WIDTHS[idx] ?? 50;
           const sharePct =
             totalForPct > 0 && idx > 0
               ? ((count / totalForPct) * 100).toFixed(1)

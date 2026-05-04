@@ -102,3 +102,53 @@ export async function getUserId(email: string): Promise<string> {
   if (!u) throw new Error(`user not found: ${email}`);
   return u.id;
 }
+
+export function getDevServerUrl(): string {
+  return process.env.DEV_SERVER_URL ?? "http://localhost:3012";
+}
+
+/**
+ * Acquire a Cookie header for the given test user by hitting the dev-server's
+ * `/api/e2e-login` bridge. Requires the dev server to be running with
+ * `E2E_AUTH_ENABLED=true` (same precondition the playwright e2e suite uses —
+ * see playwright.config.ts).
+ *
+ * Throws a helpful error if the bridge is disabled (404 or middleware
+ * redirect to /login) so an operator can see exactly what flag to flip.
+ */
+export async function signInViaBridge(email: string): Promise<string> {
+  const baseUrl = getDevServerUrl();
+  const res = await fetch(`${baseUrl}/api/e2e-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    redirect: "manual",
+  });
+  if (res.status === 307 || res.status === 302) {
+    throw new Error(
+      `signInViaBridge: dev server redirected (status ${res.status}). ` +
+        `Restart the dev server with E2E_AUTH_ENABLED=true (apps/web/.env.local) ` +
+        `before running route-handler tests.`,
+    );
+  }
+  if (res.status === 404) {
+    throw new Error(
+      `signInViaBridge: /api/e2e-login returned 404. ` +
+        `Set E2E_AUTH_ENABLED=true in apps/web/.env.local and restart the dev server.`,
+    );
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`signInViaBridge(${email}) failed: ${res.status} ${body}`);
+  }
+  // Collect every Set-Cookie header (Next sets multiple sb-... chunks).
+  const setCookies = res.headers.getSetCookie?.() ?? [];
+  if (setCookies.length === 0) {
+    throw new Error(
+      `signInViaBridge(${email}) succeeded but returned no Set-Cookie headers`,
+    );
+  }
+  // Convert "name=value; Path=/; ..." → "name=value", join into a Cookie header.
+  const cookiePairs = setCookies.map((sc) => sc.split(";")[0]!.trim());
+  return cookiePairs.join("; ");
+}

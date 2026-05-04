@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
-current_phase: 05-hq-overview
-current_plan: 03
+current_phase: 06-production-hardening
+current_plan: 04
 plan_status: shipped
-next_plan: 06-01
+next_plan: 06-05
 ---
 
 # Project State
@@ -19,7 +19,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
-| 06-production-hardening | pending | – |
+| 06-production-hardening | in progress (06-04 shipped 2026-05-04) | 2026-05-04 |
 | 07-rollout | pending | – |
 
 ## Phase 02 plan tracker
@@ -66,6 +66,16 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 | 05-03 | Playwright golden path + sidebar stubs + visual checkpoint | shipped | `05-03-SUMMARY.md` |
 
 Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
+
+## Phase 06 plan tracker
+
+| Plan | Subsystem | Status | Summary |
+|------|-----------|--------|---------|
+| 06-01 | Resend SLA breach cron | in progress (parallel) | – |
+| 06-02 | audit log + reassign instrumentation | in progress (parallel) | – |
+| 06-03 | RLS InitPlan caching + broadcast lockdown (00016 + 00017) | in progress (parallel) | – |
+| 06-04 | UX/scale carry-overs — cursor pagination + MetricCard consolidation + range picker + e2e flake fix + env doc | shipped | `06-04-SUMMARY.md` |
+| 06-05 | TBD (carry-overs not closed by 06-01..06-04) | pending | – |
 
 ## Key decisions still in force
 
@@ -141,9 +151,16 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - **Plan 05-03 — sidebar stubs are Phase 6 placeholders, not full surfaces.** `/countries`, `/service-mix`, `/settings` each render an `HQShell` + a single `<SectionCard>` describing what the surface will become. RESEARCH q5 resolved this — the canonical view of "Countries" today *is* the leaderboard on Overview; building it again would duplicate.
 - **Plan 05-03 — visual checkpoint deviations all accepted under "cross-dashboard congruence wins" + project-scope corrections + RESEARCH-resolved questions.** Six points of divergence between mockup and shipped surface; zero genuine drift. Full table in `05-03-SUMMARY.md`.
 - **Plan 05-03 — drive-by fix on sales-rep `tab labels` test.** The assertion was `getByText('Call Queue')` but the page heading was renamed to `My Leads` in plan 03-04 polish (per the user's "agent copy voice" memory). Fixed to `getByRole('heading', { name: 'My Leads' })`. Caught by the close-out full-suite Playwright run.
+- **Plan 06-04 — cursor (keyset) pagination on the country-admin lead list.** Migration 00018 adds composite index `leads_created_at_id_desc_idx` matching ORDER BY `(created_at DESC, id DESC)`. URL contract is now `?cursor=<base64url>` instead of `?page=N`; Prev walks browser history (`router.back()`), Next pushes (so back works as the cursor stack). Filter changes still `replace` to avoid history pollution. Offset path fully removed.
+- **Plan 06-04 — single `MetricCard` primitive in `@repo/ui` backs all three dashboards.** Two variants (`ring` default, `top-bar` for the original mockup look). Seven accent families (blue / orange / emerald / rose / slate / amber / violet). All `data-*` hooks (`data-tile`, `data-testid`, `data-realtime-status`) flow through the `dataAttrs` prop. The legacy `MetricCardTrend` type was dropped (no consumers); `MetricCardDelta` (`{ text, tone }`) is the replacement.
+- **Plan 06-04 — country-admin range picker re-uses the sales-rep `DateRangePicker` directly** rather than lifting it to `@repo/ui`. The UI package has no `next` peer dep today; lifting would have required adding one. Thin `RangePicker` wrapper at `(country-admin)/[country]/_components/range-picker.tsx` is the seam if behaviour ever needs to diverge. URL contract from plan 04-03 is unchanged — picker only adds the UI.
+- **Plan 06-04 — country-admin `KpiStrip` now exposes `data-realtime-status`** for symmetry with HQ. No spec depends on it today; available for the broadcast-gating pattern Phase 5 used.
 
 ## Recent commits (most recent first)
 
+- `6810d85` — feat(06-04): country-admin range picker + no-answer e2e timeout + E2E env doc
+- `7d5832e` — refactor(06-04): consolidate stat tile to single MetricCard primitive
+- `86129f7` — feat(06-04): cursor pagination on country-admin lead list
 - `e2e8a8f` — feat(05-03): HQ sidebar stub pages — Countries, Service Mix, Settings
 - `72d0125` — test(05-03): HQ overview Playwright golden path
 - `9aa0f08` — docs(05-02): close plan — SUMMARY + STATE update
@@ -197,13 +214,13 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - CSV importer URL: https://paratus-group-dashboards.vercel.app/api/leads/import-csv
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00013 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01)
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00013 + 00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Migrations 00014–00017 owned by parallel-running 06-01/06-02/06-03 — apply order may interleave
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
 ## Working tree status at last update
 
-Clean. Untracked `.claude/` directory (local Claude Code config) and `excalidraw.log` only.
+Plan 06-04 lane is clean (3 commits land cleanly). Sibling plans 06-01 / 06-02 / 06-03 are running in parallel and have unstaged work in the tree (Resend SLA cron, audit log, RLS InitPlan caching) — those will land via their own plan close-outs.
 
 ## Next move
 
@@ -221,21 +238,19 @@ Clean. Untracked `.claude/` directory (local Claude Code config) and `excalidraw
 - Visual checkpoint walked vs `docs/design-reference/hq-dashboard.html`. Six divergences logged; all six accepted (Phase 4 cross-dashboard congruence locks + RESEARCH-resolved questions + project-scope corrections).
 - Drive-by fix on sales-rep `tab labels` test (was asserting old "Call Queue" copy; now matches the "My Leads" heading from 03-04 polish).
 
-**Phase 6 — Production Hardening** is next. Run `/gsd:research-phase 6 → /gsd:plan-phase 6 → /gsd:execute-phase 6`. Suggested focus areas:
-- Pilot-country runbook (one country running 48h with real leads, no incidents).
-- Hermetic vitest setup (full-suite runs hit Supabase auth rate-limit today; chained suites fail intermittently).
-- Stat-tile component consolidation (`MetricCard` full-width top bar / queue-stats ring / kpi-strip ring → one shared component).
-- Pin `E2E_AUTH_ENABLED=true` into `.env.local.example`; document `.next/dev` cache restart cadence.
-- RLS deep-audit + InitPlan caching sweep (wrap `auth.jwt()` / `auth.uid()` in `(SELECT ...)` on Phase 1 + 5 policies).
-- Replace HQ sidebar stubs with real surfaces (drill-in directory / service mix over time / group admin settings).
+**Plan 06-04 shipped.** UX/scale carry-overs from "From 04-04" + "From 05-03" are closed:
+- Cursor pagination on the country-admin lead list (composite index 00018; offset path fully removed; URL contract `?cursor=<base64url>`).
+- Single `MetricCard` primitive in `@repo/ui` backing all three dashboards (sales-rep queue-stats, country-admin kpi-strip, HQ kpi-strip).
+- Range-picker UI on the country-admin overview (re-uses the sales-rep `DateRangePicker`; 04-03 URL contract unchanged).
+- Sales-rep no-answer 3× e2e flake fix (8s → 12s timeout).
+- `.env.local.example` documents `E2E_AUTH_ENABLED=true` + `.next` dev-cache restart cadence.
 
-Carry-overs explicitly tracked into Phase 6:
-- Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
+**Plans 06-01 / 06-02 / 06-03** are running in parallel — close them out next, then optionally seal Phase 6 with a 06-05 plan covering the remaining carry-overs below (pilot-country runbook, hermetic vitest, sidebar real surfaces, conversion-rate comparator window decision).
+
+Carry-overs still open after 06-04:
+- Pilot-country runbook (one country running 48h with real leads, no incidents).
 - Hermetic vitest setup (route-driven tests need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
 - `createServiceRoleClient` and `createAdminClient` convergence.
-- Phase 1 `user_roles` policies wrapping for InitPlan caching symmetry — relevant now that 00012 has joined the file.
-- Offset → cursor pagination on the lead list view (use `(created_at, id)` cursor pair to break ties).
-- **From 04-04**: stat-tile component consolidation (3 patterns now exist: `MetricCard` full-width top bar, `queue-stats` ring, `kpi-strip` ring). Consolidate to one shared component.
-- **From 04-04**: range-picker UI on country-admin overview (overview honours `?range=` URL contract today; URL-only acceptable for v1, picker is a small polish lift).
-- **From 05-01**: explicit `REVOKE ALL ... FROM anon, authenticated` on the three `broadcast_lead_to_*` trigger functions; wrap `auth.jwt()` in `(SELECT ...)` for `hq_group_topic` and the other realtime.messages policies (InitPlan caching sweep).
-- **From 05-03**: pin `E2E_AUTH_ENABLED=true` in `.env.local.example`; document `.next/dev` cache restart in dev-server runbook; sales-rep `no-answer 3×` flake (`data-attempts` poll occasionally reads 2 not 3 within 8s — bump to 12s or instrument the broadcast-emit timing); replace HQ sidebar stubs with real surfaces; conversion-rate comparator window decision (week-over-week vs month-over-month).
+- Phase 1 `user_roles` policies InitPlan caching symmetry (06-03 covered `realtime.messages` only).
+- Replace HQ sidebar stubs with real surfaces (drill-in directory / service mix over time / group admin settings).
+- Conversion-rate comparator window decision (week-over-week vs month-over-month).

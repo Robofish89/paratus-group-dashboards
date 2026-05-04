@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
 current_phase: 04-country-admin-dashboard
-current_plan: 01
+current_plan: 02
 plan_status: shipped
-next_plan: 02
+next_plan: 03
 ---
 
 # Project State
@@ -17,7 +17,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
-| 04-country-admin-dashboard | in-progress (plan 04-01 shipped) | 2026-05-04 |
+| 04-country-admin-dashboard | in-progress (plans 04-01, 04-02 shipped) | 2026-05-04 |
 | 05-hq-overview | pending | – |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
@@ -51,8 +51,8 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
 | 04-01 | country admin DB foundation — 4 views + 4 RPCs (incl. reassign defence-in-depth) + 11 vitest cases | shipped | `04-01-SUMMARY.md` |
-| 04-02 | country admin DAL + Zod + Database type regen + UI scaffolding | pending | – |
-| 04-03 | country admin UI — KPI tiles, funnel, leads-by-service, speed-to-lead, agent leaderboard, reassign | pending | – |
+| 04-02 | country admin DAL + Zod + types regen + overview UI (KPIs, funnel, leaderboard, gauge) + 9 vitest cases | shipped | `04-02-SUMMARY.md` |
+| 04-03 | country admin lead list + reassign dialog + write APIs | pending | – |
 
 ## Key decisions still in force
 
@@ -91,10 +91,21 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 - **Plan 04-01 — `reassign_lead` cross-country target guard is the *only* defence for HQ admins.** Country admins are caught earlier by the JWT-country guard, but hq_admin has no country-scope check. The target-country comparison (`v_target_country IS DISTINCT FROM v_lead_country` → `cross_country_assignment` / 42501) stops cross-country zombie assignments.
 - **Plan 04-01 — `agent_performance_in_range.leads_assigned` is range-windowed.** First cut counted lifetime assignments; caught by the zero-work-agent test, fixed in commit `aaba26e` and applied live as patch migration `country_admin_fix_leads_assigned_window`. Source-of-truth `00011_country_admin.sql` carries the corrected version.
 - **Plan 04-01 — `status_pipeline_today` includes the full `lead_status` enum, including `qualified`.** Even though Phase 3 plan 03-04 made `complete_call` reject `qualified`, the enum value is preserved for analytics back-compat and the funnel renders five segments (qualified will simply read 0).
+- **Plan 04-02 — `status_pipeline_today` view's GROUP BY drops zero-count buckets.** The DAL surface returns *only* statuses with at least one lead today; the consuming `<StatusPipelineCard>` component defaults missing statuses to 0 so the funnel always renders five segments. Test case 3 pins the contract; the DAL doc-comment was refined to spell it out (the prior comment incorrectly claimed "5 rows" which only happens when every status has data).
+- **Plan 04-02 — Recharts `^3.8.1` pinned to AMA companion repo, `apps/web`-only install (not monorepo root).** `@types/recharts` deliberately not installed (Recharts ships its own; the legacy types package is years out of date).
+- **Plan 04-02 — country broadcast topic `country:<code>` listening on `event:'*'`.** Same reasoning as plan 03-02 — the webhook path emits `UPDATE` (when `assign_lead` flips `assigned_to` from `NULL` to `agent_id`); filtering to a single op would silently miss the production code path. The country-scope realtime broadcast triggers from `00008_realtime_broadcast.sql` already exist; no new DB work needed.
+- **Plan 04-02 — two-source stats split is now also the country-admin pattern.** `KpiStrip` reads `country_today_stats` for live tiles + delta + `country_stats_in_range` for the range-aware Converted tile; `<StatusPipelineCard>` and `<LeadsByServiceCard>` are today-only views. Same shape Phase 3 locked for the agent queue. `router.refresh()` will resync the server view on every successful write later in 04-03.
+- **Plan 04-02 — speed-to-lead chart `<ReferenceLine y={300} />`, not `y=5`.** The DB stores `extract(epoch from ...)` — seconds, not minutes. 300 seconds = the 5-minute target. Documented in the chart file.
+- **Plan 04-02 — custom 160×160 SVG gauge ring, no library.** ~12 lines of `<circle stroke-dasharray>` math is lighter than any gauge library. Recharts is reserved for the AreaChart sparkline only (gradient fill, `<ReferenceLine>`, monotone curve).
+- **Plan 04-02 — 04-04 visual checkpoint inputs explicitly logged.** Three known visual deferrals — pixel-perfect spacing review, broadcast-bump delta-colour transitions (currently jumps; 04-04 may add 200ms ease), gauge ring stroke-linecap (currently `butt`; mockup has `round`) — are listed in the SUMMARY's "Visual fidelity" section so 04-04 picks them up rather than silently leaving them as tech debt.
 - **Plan 04-01 — `country_speed_to_lead_today` coexists with `speed_to_lead_daily` (00006).** Different shapes (today single-row vs per-day), both kept. The today view powers the gauge tile; the daily view powers the multi-day chart.
 
 ## Recent commits (most recent first)
 
+- `2189d93` — test(04-02): country admin DAL behaviour
+- `be72bc1` — feat(04-02): country admin overview UI — KPIs, funnel, leaderboard, gauge
+- `4364ba9` — feat(04-02): country admin foundation — recharts, types regen, DAL
+- `381f9bc` — docs(04-01): close plan — SUMMARY + STATE update
 - `91308cb` — test(04-01): country-admin RPCs + RLS gates
 - `aaba26e` — fix(04-01): window leads_assigned in agent_performance_in_range
 - `13ff45d` — feat(04-01): migration 00011 part 2 — country admin RPCs
@@ -136,7 +147,7 @@ Clean except for pre-existing modifications to `.planning/handoff-2026-04-27-jwt
 
 ## Next move
 
-Plan 04-01 shipped: country admin DB foundation is live on `tgswsdfaszvztbpczfve`. 4 views (`country_today_stats`, `leads_by_service_today`, `status_pipeline_today`, `country_speed_to_lead_today`) + 4 RPCs (`country_stats_in_range`, `agent_performance_in_range`, `speed_to_lead_series`, `reassign_lead`) + 11 vitest cases green from anon-key clients with real user JWTs (RLS + RPC inside-function guards under test, not bypassed). One migration bug surfaced and patched during execution (`leads_assigned` lifetime-vs-window) — caught by the test, fixed in commit `aaba26e` and live-patched.
+Plan 04-02 shipped: country admin overview UI lives at `/[country]` with 5 KPI tiles + leads-by-service bar chart + status-pipeline funnel + agent-performance leaderboard + speed-to-lead gauge & sparkline, all server-fetched in parallel, RLS in force, broadcast hook bumps live tiles. Recharts ^3.8.1 installed; `Database` type regenerated against migration 00011 (no `as never` casts); 8 reads + 1 write DAL surface in `@repo/supabase/dal`; 9 vitest cases proving DAL behaviour against the cookie-authed client (RLS + RPC inside-function guards under test, not bypassed). Type-check + lint + build all green.
 
 Carry-overs explicitly tracked into Phase 6 (unchanged from Phase 3):
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
@@ -146,4 +157,4 @@ Carry-overs explicitly tracked into Phase 6 (unchanged from Phase 3):
 
 The `phase-3-complete` tag is staged locally; push pending explicit user approval (same posture as `phase-2-complete`).
 
-**Plan 04-02 is next**: country admin DAL + Zod schemas + Database type regen + UI scaffolding. The type regen has to land first so the DAL can call `.from('country_today_stats')` / `.rpc('reassign_lead')` without `as never` casts (same close-out pattern as 03-01 used for migration 00009). Then 04-03 wires the actual UI surfaces. The Phase 3 reuse template stands: `usePrivateBroadcast<T>` with `topic: country:<code>`, `<DateRangePicker />` and `_lib/date-range.ts` drop in unchanged, two-source stats split (live tile from view + range tile from RPC) is now also the country-admin pattern.
+**Plan 04-03 is next**: country admin lead list page + reassign dialog + write APIs. Foundation already in place — `getCountryAgents` is wired (drop-in for dialog dropdown), `reassignLead` is wired with typed `ForbiddenError` / `NotFoundError` mapping, `useCountryBroadcast` is exported. Route handler just needs to validate via `reassignLeadInput` Zod schema, call `reassignLead(input)`, map typed errors to `403`/`404`/`500`. Two-source stats split is locked — page header reuses `country_today_stats` for tile counts.

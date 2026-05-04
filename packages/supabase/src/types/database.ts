@@ -4,7 +4,7 @@
 //     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     | jq -r '.types' > packages/supabase/src/types/database.ts
 //
-// Last generated: 2026-05-01 (plan 03-04, project tgswsdfaszvztbpczfve)
+// Last generated: 2026-05-04 (plan 04-02, project tgswsdfaszvztbpczfve)
 // Migration files reflected in this regen:
 //   00001_rbac_schema.sql
 //   00002_allow_auth_admin_read_user_roles.sql
@@ -18,6 +18,12 @@
 //   00010_queue_ux_redesign.sql (plan 03-04 — call_attempts/last_outcome,
 //                                view rewrite, record_no_answer +
 //                                agent_stats_in_range RPCs)
+//   00011_country_admin.sql     (plan 04-01 — country_today_stats,
+//                                leads_by_service_today, status_pipeline_today,
+//                                country_speed_to_lead_today views;
+//                                country_stats_in_range,
+//                                agent_performance_in_range,
+//                                speed_to_lead_series, reassign_lead RPCs)
 
 export type Json =
   | string
@@ -97,6 +103,20 @@ export type Database = {
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "callbacks_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "callbacks_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
             referencedColumns: ["country_code"]
           },
           {
@@ -230,6 +250,20 @@ export type Database = {
             referencedColumns: ["country_code"]
           },
           {
+            foreignKeyName: "lead_events_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "lead_events_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
+          {
             foreignKeyName: "lead_events_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -354,6 +388,20 @@ export type Database = {
             referencedColumns: ["country_code"]
           },
           {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
+          {
             foreignKeyName: "leads_form_slug_fkey"
             columns: ["form_slug"]
             isOneToOne: false
@@ -435,6 +483,31 @@ export type Database = {
         }
         Relationships: []
       }
+      country_speed_to_lead_today: {
+        Row: {
+          avg_response_seconds: number | null
+          country_code: string | null
+          on_target_count: number | null
+          on_target_pct: number | null
+          total_contacted: number | null
+        }
+        Relationships: []
+      }
+      country_today_stats: {
+        Row: {
+          contacted_today: number | null
+          contacted_yesterday: number | null
+          converted_today: number | null
+          converted_yesterday: number | null
+          country_code: string | null
+          lost_today: number | null
+          lost_yesterday: number | null
+          new_today: number | null
+          new_yesterday: number | null
+          total_leads: number | null
+        }
+        Relationships: []
+      }
       lead_pipeline_by_country: {
         Row: {
           country_code: string | null
@@ -455,6 +528,20 @@ export type Database = {
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
             referencedColumns: ["country_code"]
           },
         ]
@@ -479,6 +566,64 @@ export type Database = {
             columns: ["country_code"]
             isOneToOne: false
             referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_form_slug_fkey"
+            columns: ["form_slug"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      leads_by_service_today: {
+        Row: {
+          country_code: string | null
+          form_slug: string | null
+          leads_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
             referencedColumns: ["country_code"]
           },
           {
@@ -514,10 +659,73 @@ export type Database = {
             referencedRelation: "country_leaderboard"
             referencedColumns: ["country_code"]
           },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
+        ]
+      }
+      status_pipeline_today: {
+        Row: {
+          count: number | null
+          country_code: string | null
+          status: Database["public"]["Enums"]["lead_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
         ]
       }
     }
     Functions: {
+      agent_performance_in_range: {
+        Args: { p_country: string; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          avg_response_seconds: number
+          full_name: string
+          leads_assigned: number
+          leads_contacted: number
+          leads_converted: number
+          leads_lost: number
+        }[]
+      }
       agent_stats_in_range: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -535,13 +743,34 @@ export type Database = {
         }
         Returns: Json
       }
+      country_stats_in_range: {
+        Args: { p_country: string; p_from: string; p_to: string }
+        Returns: {
+          contacted_count: number
+          converted_count: number
+          lost_count: number
+          new_count: number
+        }[]
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       ingest_lead: { Args: { payload: Json }; Returns: Json }
       mark_lead_contacted: { Args: { p_lead_id: string }; Returns: Json }
+      reassign_lead: {
+        Args: { p_lead_id: string; p_to_agent_id: string }
+        Returns: undefined
+      }
       record_no_answer: { Args: { p_lead_id: string }; Returns: Json }
       schedule_callback: {
         Args: { p_lead_id: string; p_notes?: string; p_scheduled_for: string }
         Returns: Json
+      }
+      speed_to_lead_series: {
+        Args: { p_country: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          median_seconds: number
+          p75_seconds: number
+        }[]
       }
     }
     Enums: {

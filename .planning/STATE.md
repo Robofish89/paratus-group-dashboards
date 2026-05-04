@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
 current_phase: 04-country-admin-dashboard
-current_plan: 02
+current_plan: 03
 plan_status: shipped
-next_plan: 03
+next_plan: 04
 ---
 
 # Project State
@@ -17,7 +17,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
-| 04-country-admin-dashboard | in-progress (plans 04-01, 04-02 shipped) | 2026-05-04 |
+| 04-country-admin-dashboard | in-progress (plans 04-01, 04-02, 04-03 shipped) | 2026-05-04 |
 | 05-hq-overview | pending | – |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
@@ -52,7 +52,7 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 |------|-----------|--------|---------|
 | 04-01 | country admin DB foundation — 4 views + 4 RPCs (incl. reassign defence-in-depth) + 11 vitest cases | shipped | `04-01-SUMMARY.md` |
 | 04-02 | country admin DAL + Zod + types regen + overview UI (KPIs, funnel, leaderboard, gauge) + 9 vitest cases | shipped | `04-02-SUMMARY.md` |
-| 04-03 | country admin lead list + reassign dialog + write APIs | pending | – |
+| 04-03 | country admin lead list + reassign dialog + write APIs | shipped | `04-03-SUMMARY.md` |
 
 ## Key decisions still in force
 
@@ -99,9 +99,20 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 - **Plan 04-02 — custom 160×160 SVG gauge ring, no library.** ~12 lines of `<circle stroke-dasharray>` math is lighter than any gauge library. Recharts is reserved for the AreaChart sparkline only (gradient fill, `<ReferenceLine>`, monotone curve).
 - **Plan 04-02 — 04-04 visual checkpoint inputs explicitly logged.** Three known visual deferrals — pixel-perfect spacing review, broadcast-bump delta-colour transitions (currently jumps; 04-04 may add 200ms ease), gauge ring stroke-linecap (currently `butt`; mockup has `round`) — are listed in the SUMMARY's "Visual fidelity" section so 04-04 picks them up rather than silently leaving them as tech debt.
 - **Plan 04-01 — `country_speed_to_lead_today` coexists with `speed_to_lead_daily` (00006).** Different shapes (today single-row vs per-day), both kept. The today view powers the gauge tile; the daily view powers the multi-day chart.
+- **Plan 04-03 — CSV export uses cookie-authed `createClient`, never service-role** (RESEARCH.md pitfall 6). RLS is the country lock; HQ admins see all because the JWT custom claim doesn't pin `country_code`. The route deliberately does NOT add an `.eq("country_code", ...)` filter — that would silently break HQ's see-all path and is dead-code for country admins (RLS already enforces it).
+- **Plan 04-03 — defence-in-depth role gate on both country-admin routes.** `claims.user_role` checked at the route layer (`country_admin | hq_admin`) on top of the SECURITY DEFINER `forbidden_role` guard inside `reassign_lead`. Mirrors the agent queue routes (`/api/queue/complete` etc.). 401 for missing session, 403 for wrong role.
+- **Plan 04-03 — offset pagination for the lead list, cursor migration deferred to Phase 6.** Paratus's largest active country has ~5k leads; offset works at this scale. No `// TODO` left in code (Boil-the-Ocean) — v1 code is correct as shipped, just not asymptotically optimal.
+- **Plan 04-03 — no realtime broadcast on the lead list view.** Pagination + concurrent inserts shifts indices; admins on page 2 would see rows duplicate / disappear as new leads arrive on page 1. Overview tiles still pop via `useCountryBroadcast`. Verified: opening `/[country]/leads` does NOT open a Supabase realtime WS connection.
+- **Plan 04-03 — cross-country reassignment guard is RPC-only.** No client-side check in `<ReassignDialog>` — the agents dropdown is already filtered to the lead's country (`getCountryAgents(country)`), and the RPC's `cross_country_assignment` guard backstops it. Single source of truth at the SQL layer; UI layer doesn't try to mirror the rule.
+- **Plan 04-03 — `q` filter sanitises `,()` before PostgREST `.or()`.** supabase-js splits the `.or()` value on commas and parens; passing user input verbatim breaks the filter. Helper strips those characters (searching for them isn't meaningful for name/email/phone).
+- **Plan 04-03 — `signInViaBridge` collects every `Set-Cookie` chunk** via `getSetCookie()`. Next sets multiple `sb-...-auth-token.{0,1,...}` chunks for big sessions; concatenating only the first one breaks RLS auth in the test client. Helper splits each chunk on `;`, takes the `name=value` head, and joins with `; ` for the request `Cookie:` header.
 
 ## Recent commits (most recent first)
 
+- `77f6f46` — test(04-03): country admin route handlers + RLS gates
+- `ea69b85` — feat(04-03): country admin lead list + reassign dialog
+- `87683b7` — feat(04-03): country admin write APIs — reassign + CSV export
+- `10b84d8` — docs(04-02): close plan — SUMMARY + STATE update
 - `2189d93` — test(04-02): country admin DAL behaviour
 - `be72bc1` — feat(04-02): country admin overview UI — KPIs, funnel, leaderboard, gauge
 - `4364ba9` — feat(04-02): country admin foundation — recharts, types regen, DAL
@@ -147,14 +158,15 @@ Clean except for pre-existing modifications to `.planning/handoff-2026-04-27-jwt
 
 ## Next move
 
-Plan 04-02 shipped: country admin overview UI lives at `/[country]` with 5 KPI tiles + leads-by-service bar chart + status-pipeline funnel + agent-performance leaderboard + speed-to-lead gauge & sparkline, all server-fetched in parallel, RLS in force, broadcast hook bumps live tiles. Recharts ^3.8.1 installed; `Database` type regenerated against migration 00011 (no `as never` casts); 8 reads + 1 write DAL surface in `@repo/supabase/dal`; 9 vitest cases proving DAL behaviour against the cookie-authed client (RLS + RPC inside-function guards under test, not bypassed). Type-check + lint + build all green.
+Plan 04-03 shipped: country admin lead list lives at `/[country]/leads` with status / service / date-range / search filters, offset pagination (50 per page), reassign dialog (Radix over `@repo/ui`), and right-aligned Export CSV button. Two write APIs landed: `POST /api/country-admin/reassign` (Zod → DAL → typed-error mapping → 204/400/403/404/500) and `GET /api/country-admin/export-leads` (cookie-authed, RLS country-locked, `Papa.unparse`, 50k row cap with `X-Truncated` header). Route layer adds defence-in-depth role gate on top of the SECURITY DEFINER RPC's internal JWT guards. 11 vitest cases drive the routes over real HTTP (port 3012, `E2E_AUTH_ENABLED=true`) so middleware + cookie auth + RLS round-trip on every assertion — all green. Type-check + lint clean.
 
 Carry-overs explicitly tracked into Phase 6 (unchanged from Phase 3):
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
 - Hermetic vitest setup (today the route-driven tests need `npm run dev` running on port 3012).
 - `createServiceRoleClient` and `createAdminClient` convergence.
 - Phase 1 `user_roles` policies wrapping for InitPlan caching symmetry.
+- **New from 04-03**: offset → cursor pagination on the lead list view (use `(created_at, id)` cursor pair to break ties).
 
 The `phase-3-complete` tag is staged locally; push pending explicit user approval (same posture as `phase-2-complete`).
 
-**Plan 04-03 is next**: country admin lead list page + reassign dialog + write APIs. Foundation already in place — `getCountryAgents` is wired (drop-in for dialog dropdown), `reassignLead` is wired with typed `ForbiddenError` / `NotFoundError` mapping, `useCountryBroadcast` is exported. Route handler just needs to validate via `reassignLeadInput` Zod schema, call `reassignLead(input)`, map typed errors to `403`/`404`/`500`. Two-source stats split is locked — page header reuses `country_today_stats` for tile counts.
+**Plan 04-04 is next**: Playwright golden-path E2E + visual checkpoint. Six visual deferrals are queued (three from 04-02: gauge linecap, delta colour transitions, pixel-perfect spacing; three from 04-03: row-hover transition, empty-state illustration, list-view spacing). Golden path: NA admin signs in via e2e bridge → lands on `/MZ` overview → Sidebar → Leads → filters by status → opens Reassign dialog → reassigns → row updates → Export CSV downloads. The e2e-login bridge + signInViaBridge helper are already wired; Playwright reuses them.

@@ -1,9 +1,9 @@
 ---
-last_updated: 2026-05-02
-current_phase: 03-sales-rep-queue
-current_plan: 04
+last_updated: 2026-05-04
+current_phase: 04-country-admin-dashboard
+current_plan: 01
 plan_status: shipped
-next_plan: 04-country-admin-dashboard (research → plan → execute)
+next_plan: 02
 ---
 
 # Project State
@@ -17,7 +17,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
-| 04-country-admin-dashboard | pending | – |
+| 04-country-admin-dashboard | in-progress (plan 04-01 shipped) | 2026-05-04 |
 | 05-hq-overview | pending | – |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
@@ -45,6 +45,14 @@ Phase rollup: `02-data-model-ingestion/PHASE-SUMMARY.md`.
 | 03-04 | UX redesign — 4 tabs, 4 tiles, range picker, no-answer flow, double-counter fix, dead-button fix | shipped | `03-04-SUMMARY.md` |
 
 Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
+
+## Phase 04 plan tracker
+
+| Plan | Subsystem | Status | Summary |
+|------|-----------|--------|---------|
+| 04-01 | country admin DB foundation — 4 views + 4 RPCs (incl. reassign defence-in-depth) + 11 vitest cases | shipped | `04-01-SUMMARY.md` |
+| 04-02 | country admin DAL + Zod + Database type regen + UI scaffolding | pending | – |
+| 04-03 | country admin UI — KPI tiles, funnel, leads-by-service, speed-to-lead, agent leaderboard, reassign | pending | – |
 
 ## Key decisions still in force
 
@@ -77,9 +85,25 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 - **Plan 03-04 — defence-in-depth on the dead-button bug.** `mark_lead_contacted` RAISEs `invalid_status` when called against a `converted` or `lost` lead; UI hides the button. Two layers must fail to reproduce plan 03-03's dead-button crash.
 - **Plan 03-04 — done_today single-counted at the view layer.** Recreated `agent_today_stats.done_today` reads `count(leads where status IN ('converted','lost') and updated_at >= start_of_day)` — no longer sums `lead_events`. Fixes the prior bug where the `'connected'` event leaked into the counter.
 - **Plan 03-04 — modal-free surface.** `CallOutcomeModal` deleted from `@repo/ui`. Inline state-aware card actions (`<CardActionArea />`) cover all five outcomes (Call → Converted / Lost / Callback / No-answer). `git grep -n 'CallOutcomeModal' packages/ apps/` returns zero hits.
+- **Plan 04-01 — JWT custom claims are `user_role` + `country_code`** (NOT `role`/`country`); the `agent` role enum value is what `user_roles.role` stores (NOT `sales_rep`). Every guard in 00011 reads those exact keys. The 04-01 plan template was written before that convention was finalised; corrected during execution.
+- **Plan 04-01 — speed-to-lead asymmetry: median for the sparkline, average for the headline KPI tile.** `speed_to_lead_series` returns P50 + P75 because charts are sensitive to outliers; `country_speed_to_lead_today.avg_response_seconds` keeps "Avg Response Time" on the tile because that's the literal mockup label. Documented in SQL comments.
+- **Plan 04-01 — speed-to-lead NULL policy: aggregations operate only over leads where `first_contacted_at IS NOT NULL`.** Including uncontacted leads would make the metric look artificially fast (Phase 4 RESEARCH.md pitfall 3). Applies to `country_speed_to_lead_today` AND `speed_to_lead_series`.
+- **Plan 04-01 — `reassign_lead` cross-country target guard is the *only* defence for HQ admins.** Country admins are caught earlier by the JWT-country guard, but hq_admin has no country-scope check. The target-country comparison (`v_target_country IS DISTINCT FROM v_lead_country` → `cross_country_assignment` / 42501) stops cross-country zombie assignments.
+- **Plan 04-01 — `agent_performance_in_range.leads_assigned` is range-windowed.** First cut counted lifetime assignments; caught by the zero-work-agent test, fixed in commit `aaba26e` and applied live as patch migration `country_admin_fix_leads_assigned_window`. Source-of-truth `00011_country_admin.sql` carries the corrected version.
+- **Plan 04-01 — `status_pipeline_today` includes the full `lead_status` enum, including `qualified`.** Even though Phase 3 plan 03-04 made `complete_call` reject `qualified`, the enum value is preserved for analytics back-compat and the funnel renders five segments (qualified will simply read 0).
+- **Plan 04-01 — `country_speed_to_lead_today` coexists with `speed_to_lead_daily` (00006).** Different shapes (today single-row vs per-day), both kept. The today view powers the gauge tile; the daily view powers the multi-day chart.
 
 ## Recent commits (most recent first)
 
+- `91308cb` — test(04-01): country-admin RPCs + RLS gates
+- `aaba26e` — fix(04-01): window leads_assigned in agent_performance_in_range
+- `13ff45d` — feat(04-01): migration 00011 part 2 — country admin RPCs
+- `17cdf56` — feat(04-01): migration 00011 part 1 — country admin views
+- `d9318ca` — docs(04): create phase plan
+- `3b0d425` — docs(04): complete phase research
+- `b9634ad` — ci: trigger redeploy after repo visibility change to public
+- `61855d3` — docs: rename supabase-paratus MCP references to supabase-paratusgroup
+- `8c6f207` — fix(03-04): replace stats subheading with Live data pill
 - `37d6c5e` — chore(03-04): remove deprecated outcome modal
 - `f92374d` — test(03-04): e2e for inline outcomes + follow-ups
 - `f7d4828` — feat(03-04): no-answer route + complete route narrowed outcomes
@@ -102,7 +126,7 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 - CSV importer URL: https://paratus-group-dashboards.vercel.app/api/leads/import-csv
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00010 applied
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00011 applied (plus patch `country_admin_fix_leads_assigned_window`)
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
@@ -112,9 +136,9 @@ Clean except for pre-existing modifications to `.planning/handoff-2026-04-27-jwt
 
 ## Next move
 
-Phase 3 closed. Agent surface is live, modal-free, and validated end-to-end against the production project. Both production bugs from the plan-03-03 modal phase fixed at the database layer in 03-04: `done_today` no longer double-counts; terminal leads no longer expose a dead Call button (UI hides + RPC RAISEs `invalid_status` as backstop). Vocabulary aligned to the agent's mental model — Converted / Follow-ups / Lost. 17 vitest + 3 Playwright tests green.
+Plan 04-01 shipped: country admin DB foundation is live on `tgswsdfaszvztbpczfve`. 4 views (`country_today_stats`, `leads_by_service_today`, `status_pipeline_today`, `country_speed_to_lead_today`) + 4 RPCs (`country_stats_in_range`, `agent_performance_in_range`, `speed_to_lead_series`, `reassign_lead`) + 11 vitest cases green from anon-key clients with real user JWTs (RLS + RPC inside-function guards under test, not bypassed). One migration bug surfaced and patched during execution (`leads_assigned` lifetime-vs-window) — caught by the test, fixed in commit `aaba26e` and live-patched.
 
-Carry-overs explicitly tracked into Phase 6:
+Carry-overs explicitly tracked into Phase 6 (unchanged from Phase 3):
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
 - Hermetic vitest setup (today the route-driven tests need `npm run dev` running on port 3012).
 - `createServiceRoleClient` and `createAdminClient` convergence.
@@ -122,4 +146,4 @@ Carry-overs explicitly tracked into Phase 6:
 
 The `phase-3-complete` tag is staged locally; push pending explicit user approval (same posture as `phase-2-complete`).
 
-**Phase 4 — Country Admin Dashboard** is next: KPIs, pipeline funnel, speed-to-lead chart, agent leaderboard, lead list with reassignment. Reuse template ready: `usePrivateBroadcast<T>` with `topic: country:<code>`, `<DateRangePicker />` and `_lib/date-range.ts` drop in unchanged, two-source stats split (live tile from view + range tile from RPC) is the proven pattern. Research → plan → execute, starting with `gsd:research-phase`.
+**Plan 04-02 is next**: country admin DAL + Zod schemas + Database type regen + UI scaffolding. The type regen has to land first so the DAL can call `.from('country_today_stats')` / `.rpc('reassign_lead')` without `as never` casts (same close-out pattern as 03-01 used for migration 00009). Then 04-03 wires the actual UI surfaces. The Phase 3 reuse template stands: `usePrivateBroadcast<T>` with `topic: country:<code>`, `<DateRangePicker />` and `_lib/date-range.ts` drop in unchanged, two-source stats split (live tile from view + range tile from RPC) is now also the country-admin pattern.

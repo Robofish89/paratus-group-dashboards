@@ -2,7 +2,13 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@repo/supabase/server";
-import { getCurrentUserClaims, completeCall } from "@repo/supabase/dal";
+import {
+  completeCall,
+  computeDiff,
+  getCurrentUserClaims,
+  hashIpAddress,
+  recordAudit,
+} from "@repo/supabase/dal";
 import { completeCallInput } from "@repo/supabase/schemas/queue";
 
 /**
@@ -22,6 +28,10 @@ import { completeCallInput } from "@repo/supabase/schemas/queue";
  *                          by /api/queue/callback in a separate request
  *       'qualified' is rejected (Zod 400) — the UI collapses Qualified +
  *       Won into a single 'Converted' label at the surface layer.
+ *
+ * Phase 6 plan 06-02 — writes an `audit_log` row capturing the
+ * status/outcome transition after the RPC succeeds. Audit failure is
+ * structured-logged and never blocks the primary 200 response.
  *
  * Returns: { lead_id, status, outcome } on 200; { error } on 4xx/5xx.
  */
@@ -60,9 +70,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Capture the lead's current status BEFORE the RPC for the audit diff.
+  const { data: leadBefore } = await supabase
+    .from("leads")
+    .select("status, country_code, last_outcome")
+    .eq("id", parsed.data.lead_id)
+    .maybeSingle();
+
+  let result: Awaited<ReturnType<typeof completeCall>>;
   try {
-    const result = await completeCall(parsed.data);
-    return NextResponse.json(result, { status: 200 });
+    result = await completeCall(parsed.data);
   } catch (err) {
     const message = err instanceof Error ? err.message : "rpc failed";
     if (/forbidden/i.test(message)) {
@@ -76,4 +93,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // Audit hook — non-blocking.
+  try {
+    const targetCountry = leadBefore?.country_code ?? null;
+    if (targetCountry) {
+      await recordAudit({
+        action: "lead.complete",
+        targetType: "lead",
+        targetId: parsed.data.lead_id,
+        countryCode: targetCountry,
+        diff: computeDiff(
+          {
+            status: leadBefore?.status ?? null,
+            last_outcome: leadBefore?.last_outcome ?? null,
+          },
+          { status: result.status, last_outcome: parsed.data.outcome },
+        ),
+        ipHash: hashIpAddress(req.headers.get("x-forwarded-for") ?? ""),
+      });
+    }
+  } catch (auditErr) {
+    const message =
+      auditErr instanceof Error ? auditErr.message : "audit write failed";
+    // eslint-disable-next-line no-console -- structured observability log
+    console.warn(
+      JSON.stringify({
+        event: "audit_write_failed",
+        action: "lead.complete",
+        targetId: parsed.data.lead_id,
+        message,
+      }),
+    );
+  }
+
+  return NextResponse.json(result, { status: 200 });
 }

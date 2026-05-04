@@ -3,9 +3,11 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@repo/supabase/server";
 import {
-  getCurrentUserClaims,
-  scheduleCallback,
   completeCall,
+  getCurrentUserClaims,
+  hashIpAddress,
+  recordAudit,
+  scheduleCallback,
 } from "@repo/supabase/dal";
 import { scheduleCallbackInput } from "@repo/supabase/schemas/queue";
 
@@ -17,6 +19,10 @@ import { scheduleCallbackInput } from "@repo/supabase/schemas/queue";
  * succeed; if the second call fails we surface the error and leave the
  * callback row in place (it's authoritative — the missing event is logged
  * downstream by the SUMMARY worker).
+ *
+ * Phase 6 plan 06-02 — writes an `audit_log` row keyed on the new callback
+ * row (target_type='callback', target_id=callback.id) after both writes
+ * succeed. Audit failure is structured-logged and never blocks the response.
  *
  * Body: { lead_id, scheduled_for, notes? } — validated via scheduleCallbackInput.
  *
@@ -57,8 +63,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Capture the lead's country BEFORE the RPC for the audit row.
+  const { data: leadBefore } = await supabase
+    .from("leads")
+    .select("country_code")
+    .eq("id", parsed.data.lead_id)
+    .maybeSingle();
+
+  let callback: Awaited<ReturnType<typeof scheduleCallback>>;
   try {
-    const callback = await scheduleCallback(parsed.data);
+    callback = await scheduleCallback(parsed.data);
     // Record the call event too — keeps lead_events complete for the SUMMARY
     // view + audit trail. complete_call's 'callback' outcome is event-only
     // (no status mutation), so this is non-destructive.
@@ -67,7 +81,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       outcome: "callback",
       notes: parsed.data.notes,
     });
-    return NextResponse.json(callback, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "rpc failed";
     if (/forbidden/i.test(message)) {
@@ -81,4 +94,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // Audit hook — non-blocking. Targets the callback row, not the lead.
+  try {
+    const targetCountry = leadBefore?.country_code ?? null;
+    if (targetCountry) {
+      await recordAudit({
+        action: "lead.callback",
+        targetType: "callback",
+        targetId: callback.callback_id,
+        countryCode: targetCountry,
+        diff: {
+          scheduled_for: { before: null, after: callback.scheduled_for },
+        },
+        ipHash: hashIpAddress(req.headers.get("x-forwarded-for") ?? ""),
+      });
+    }
+  } catch (auditErr) {
+    const message =
+      auditErr instanceof Error ? auditErr.message : "audit write failed";
+    // eslint-disable-next-line no-console -- structured observability log
+    console.warn(
+      JSON.stringify({
+        event: "audit_write_failed",
+        action: "lead.callback",
+        targetId: callback.callback_id,
+        message,
+      }),
+    );
+  }
+
+  return NextResponse.json(callback, { status: 200 });
 }

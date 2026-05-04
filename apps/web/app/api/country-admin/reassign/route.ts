@@ -1,11 +1,15 @@
 import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@repo/supabase/server";
 import {
   ForbiddenError,
   NotFoundError,
+  computeDiff,
   getCurrentUserClaims,
+  hashIpAddress,
   reassignLead,
+  recordAudit,
 } from "@repo/supabase/dal";
 import { reassignLeadInput } from "@repo/supabase/schemas";
 
@@ -17,6 +21,13 @@ import { reassignLeadInput } from "@repo/supabase/schemas";
  * country + cross-country target internally; the role check here keeps
  * non-admins out at the route layer (defence-in-depth, mirrors
  * `apps/web/app/api/queue/complete/route.ts`).
+ *
+ * Phase 6 plan 06-02 — after the primary write succeeds, write an
+ * `audit_log` row capturing actor + before/after assigned_to + visibility
+ * scope. Cross-country reassign (HQ-initiated, source_country !=
+ * target_country) writes ONE row visible to BOTH country admins via the
+ * `visible_to_country_codes` array column. Audit failure is logged as a
+ * structured warning and never blocks the primary 204 response.
  *
  * Body: { lead_id, to_agent_id } — validated via reassignLeadInput Zod schema.
  *
@@ -59,9 +70,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Read the lead's current assigned_to + country_code BEFORE the RPC, then
+  // re-read AFTER, so the audit row carries an accurate diff. RLS scopes
+  // these reads to what the caller can already see — country admins see only
+  // their country, HQ sees all. The supabase client reuses the same cookie
+  // session as the RPC.
+  const supabase = await createClient();
+  const { data: leadBefore } = await supabase
+    .from("leads")
+    .select("assigned_to, country_code")
+    .eq("id", parsed.data.lead_id)
+    .maybeSingle();
+
   try {
     await reassignLead(parsed.data);
-    return new NextResponse(null, { status: 204 });
   } catch (err) {
     if (err instanceof ForbiddenError) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -72,4 +94,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const message = err instanceof Error ? err.message : "internal_error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // Audit hook — non-blocking. Lead-after read scopes via RLS too.
+  try {
+    const { data: leadAfter } = await supabase
+      .from("leads")
+      .select("assigned_to, country_code")
+      .eq("id", parsed.data.lead_id)
+      .maybeSingle();
+
+    const beforeAssigned = leadBefore?.assigned_to ?? null;
+    const afterAssigned = leadAfter?.assigned_to ?? parsed.data.to_agent_id;
+    const sourceCountry = leadBefore?.country_code ?? leadAfter?.country_code ?? null;
+    const targetCountry = leadAfter?.country_code ?? sourceCountry;
+
+    if (targetCountry) {
+      const visibility =
+        sourceCountry && sourceCountry !== targetCountry
+          ? [sourceCountry, targetCountry]
+          : [targetCountry];
+
+      await recordAudit({
+        action: "lead.reassign",
+        targetType: "lead",
+        targetId: parsed.data.lead_id,
+        countryCode: targetCountry,
+        diff: computeDiff(
+          { assigned_to: beforeAssigned },
+          { assigned_to: afterAssigned },
+        ),
+        visibleToCountryCodes: visibility,
+        ipHash: hashIpAddress(req.headers.get("x-forwarded-for") ?? ""),
+      });
+    }
+  } catch (auditErr) {
+    const message =
+      auditErr instanceof Error ? auditErr.message : "audit write failed";
+    // eslint-disable-next-line no-console -- structured observability log; primary write already succeeded
+    console.warn(
+      JSON.stringify({
+        event: "audit_write_failed",
+        action: "lead.reassign",
+        targetId: parsed.data.lead_id,
+        message,
+      }),
+    );
+  }
+
+  return new NextResponse(null, { status: 204 });
 }

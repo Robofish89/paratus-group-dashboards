@@ -4,6 +4,7 @@ import {
   Filter,
   LayoutDashboard,
   Phone,
+  ScrollText,
   Settings,
   Users,
   UsersRound,
@@ -31,6 +32,9 @@ export function countryAdminNav(countrySlug: string): NavItem[] {
     { label: "Pipeline", href: `${base}/pipeline`, icon: Filter },
     { label: "Agents", href: `${base}/agents`, icon: Users },
     { label: "Leads", href: `${base}/leads`, icon: BarChart3 },
+    // Audit added in Phase 6 plan 06-02 — visible to country_admin +
+    // hq_admin (the same allowlist as the country layout's requireRole).
+    { label: "Audit", href: `${base}/audit`, icon: ScrollText },
     { label: "Settings", href: `${base}/settings`, icon: Settings },
   ];
 }

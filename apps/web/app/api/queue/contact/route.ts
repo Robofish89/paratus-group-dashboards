@@ -3,7 +3,13 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@repo/supabase/server";
-import { getCurrentUserClaims, markLeadContacted } from "@repo/supabase/dal";
+import {
+  computeDiff,
+  getCurrentUserClaims,
+  hashIpAddress,
+  markLeadContacted,
+  recordAudit,
+} from "@repo/supabase/dal";
 
 /**
  * Phase 3 queue route — POST /api/queue/contact.
@@ -14,6 +20,10 @@ import { getCurrentUserClaims, markLeadContacted } from "@repo/supabase/dal";
  * defence-in-depth role check (must be agent or hq_admin) on top of the
  * cookie-session auth so a misconfigured middleware bypass still rejects
  * non-agents at this layer.
+ *
+ * Phase 6 plan 06-02 — writes an `audit_log` row when the
+ * `first_contacted_at` field actually changes (the RPC is a no-op for leads
+ * already contacted, so we only audit the genuine NULL → now() transition).
  *
  * Body: { lead_id: uuid }
  * Returns: { lead_id, first_contacted_at } on 200; { error } on 4xx/5xx.
@@ -57,9 +67,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Capture first_contacted_at + country BEFORE the RPC for the audit diff.
+  const { data: leadBefore } = await supabase
+    .from("leads")
+    .select("first_contacted_at, country_code")
+    .eq("id", parsed.data.lead_id)
+    .maybeSingle();
+
+  let result: Awaited<ReturnType<typeof markLeadContacted>>;
   try {
-    const result = await markLeadContacted(parsed.data.lead_id);
-    return NextResponse.json(result, { status: 200 });
+    result = await markLeadContacted(parsed.data.lead_id);
   } catch (err) {
     const message = err instanceof Error ? err.message : "rpc failed";
     // Map known RPC raises (forbidden, lead_not_found, invalid_status) to 4xx.
@@ -74,4 +91,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // Audit hook — non-blocking. Only audit the actual NULL → now() transition;
+  // subsequent calls on an already-contacted lead are no-ops.
+  if (
+    leadBefore?.first_contacted_at !== result.first_contacted_at &&
+    leadBefore?.country_code
+  ) {
+    try {
+      await recordAudit({
+        action: "lead.contact",
+        targetType: "lead",
+        targetId: parsed.data.lead_id,
+        countryCode: leadBefore.country_code,
+        diff: computeDiff(
+          { first_contacted_at: leadBefore.first_contacted_at ?? null },
+          { first_contacted_at: result.first_contacted_at },
+        ),
+        ipHash: hashIpAddress(req.headers.get("x-forwarded-for") ?? ""),
+      });
+    } catch (auditErr) {
+      const message =
+        auditErr instanceof Error ? auditErr.message : "audit write failed";
+      // eslint-disable-next-line no-console -- structured observability log
+      console.warn(
+        JSON.stringify({
+          event: "audit_write_failed",
+          action: "lead.contact",
+          targetId: parsed.data.lead_id,
+          message,
+        }),
+      );
+    }
+  }
+
+  return NextResponse.json(result, { status: 200 });
 }

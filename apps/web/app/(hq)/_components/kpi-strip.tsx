@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@repo/ui";
+import { MetricCard, type MetricCardAccent } from "@repo/ui";
 import {
   computeResponseStatus,
   type GroupTodayStats,
@@ -15,13 +15,14 @@ import { useGroupBroadcast } from "./use-group-broadcast";
  *   Total Leads (Group) | Countries Active | Conversion Rate |
  *   Avg Speed to Lead | Leads Today
  *
+ * Refactored in plan 06-04 task 2 to consume the shared `MetricCard`
+ * primitive from `@repo/ui` (ring variant) — single source of truth across
+ * the three dashboards.
+ *
  * Counts arrive server-fetched as `today` (server-authoritative). The group
  * broadcast hook optimistically `+1`s `total_leads_group` and `new_today_group`
  * on each new-lead event; server-authoritative `router.refresh()` re-fetches
  * the underlying view shortly after each broadcast.
- *
- * Ring-around-card pattern locked in plan 04-04 (cross-dashboard congruence
- * with the queue-stats tiles). Phase 5 inherits.
  *
  * Caveat — the "Avg Speed to Lead" tile shows the GROUP MEAN; a green tile
  * here doesn't mean every country is on target. The country leaderboard
@@ -31,19 +32,6 @@ import { useGroupBroadcast } from "./use-group-broadcast";
 interface KpiStripProps {
   today: GroupTodayStats;
 }
-
-const TONE = {
-  total: { number: "text-[#2B479B]", ring: "ring-2 ring-blue-100" },
-  countries: { number: "text-[#2B479B]", ring: "ring-2 ring-blue-100" },
-  conversion: { number: "text-amber-500", ring: "ring-2 ring-amber-100" },
-  avg_speed_green: {
-    number: "text-emerald-500",
-    ring: "ring-2 ring-emerald-100",
-  },
-  avg_speed_amber: { number: "text-amber-500", ring: "ring-2 ring-amber-100" },
-  avg_speed_red: { number: "text-red-500", ring: "ring-2 ring-red-100" },
-  today: { number: "text-emerald-500", ring: "ring-2 ring-emerald-100" },
-} as const;
 
 function formatPct(value: number | null): string {
   if (value === null) return "—";
@@ -61,16 +49,11 @@ function formatDuration(seconds: number | null): string {
   return `${secs}s`;
 }
 
-interface KpiTone {
-  number: string;
-  ring: string;
-}
-
-function avgSpeedTone(seconds: number | null): KpiTone {
+function avgSpeedAccent(seconds: number | null): MetricCardAccent {
   const status = computeResponseStatus(seconds);
-  if (status === "green") return TONE.avg_speed_green;
-  if (status === "amber") return TONE.avg_speed_amber;
-  return TONE.avg_speed_red;
+  if (status === "green") return "emerald";
+  if (status === "amber") return "amber";
+  return "rose";
 }
 
 export function KpiStrip({ today }: KpiStripProps) {
@@ -114,35 +97,42 @@ export function KpiStrip({ today }: KpiStripProps) {
   const conversionRate = today.conversion_rate_alltime;
   const avgSpeedSeconds = today.avg_speed_to_lead_seconds_today;
 
-  const tiles = [
+  interface TileSpec {
+    key: string;
+    label: string;
+    accent: MetricCardAccent;
+    value: string;
+  }
+
+  const tiles: TileSpec[] = [
     {
       key: "total",
       label: "Total Leads (Group)",
-      tone: TONE.total,
+      accent: "blue",
       value: totalLeads.toLocaleString(),
     },
     {
       key: "countries",
       label: "Countries Active",
-      tone: TONE.countries,
+      accent: "blue",
       value: activeCountries.toLocaleString(),
     },
     {
       key: "conversion",
       label: "Conversion Rate",
-      tone: TONE.conversion,
+      accent: "amber",
       value: formatPct(conversionRate),
     },
     {
       key: "avg_speed",
       label: "Avg Speed to Lead",
-      tone: avgSpeedTone(avgSpeedSeconds),
+      accent: avgSpeedAccent(avgSpeedSeconds),
       value: formatDuration(avgSpeedSeconds),
     },
     {
       key: "today",
       label: "Leads Today",
-      tone: TONE.today,
+      accent: "emerald",
       value: newToday.toLocaleString(),
     },
   ];
@@ -154,22 +144,13 @@ export function KpiStrip({ today }: KpiStripProps) {
       data-realtime-status={realtimeStatus}
     >
       {tiles.map((tile) => (
-        <div
+        <MetricCard
           key={tile.key}
-          data-testid={`kpi-strip-tile-${tile.key}`}
-          className={cn(
-            "bg-white rounded-xl px-4 py-3 sm:px-5 sm:py-4 border border-slate-200",
-            "transition-shadow duration-200 hover:shadow-md",
-            tile.tone.ring,
-          )}
-        >
-          <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
-            {tile.label}
-          </p>
-          <p className={cn("text-3xl font-bold tabular-nums", tile.tone.number)}>
-            {tile.value}
-          </p>
-        </div>
+          label={tile.label}
+          value={tile.value}
+          accent={tile.accent}
+          dataAttrs={{ "data-testid": `kpi-strip-tile-${tile.key}` }}
+        />
       ))}
     </div>
   );

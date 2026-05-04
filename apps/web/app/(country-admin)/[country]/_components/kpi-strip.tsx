@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@repo/ui";
+import {
+  MetricCard,
+  type MetricCardAccent,
+  type MetricCardDelta,
+} from "@repo/ui";
 import type { CountryTodayStats } from "@repo/supabase/dal";
+import type { BroadcastStatus } from "@repo/supabase/realtime";
 import { useCountryBroadcast } from "./use-country-broadcast";
 
 /**
  * 5 KPI tiles matching `docs/design-reference/country-admin-dashboard.html`:
  *   Total Leads | New Today | Contacted | Converted | Avg Response Time
+ *
+ * Refactored in plan 06-04 task 2 to consume the shared `MetricCard`
+ * primitive from `@repo/ui` (ring variant) — single source of truth across
+ * the three dashboards.
  *
  * Counts arrive server-fetched as `today` (server-authoritative). The
  * country broadcast hook optimistically `+1`s `total_leads` and `new_today`
@@ -33,33 +42,23 @@ interface KpiStripProps {
   avgResponseOnTarget: boolean;
 }
 
-interface DeltaResult {
-  text: string;
-  tone: "up" | "down" | "flat";
-}
-
-function computeDelta(today: number | null, yesterday: number | null): DeltaResult | null {
+function computeDelta(
+  today: number | null,
+  yesterday: number | null,
+): MetricCardDelta | null {
   if (today === null || yesterday === null) return null;
   if (yesterday === 0) {
-    if (today === 0) return { text: "—", tone: "flat" };
+    if (today === 0) return { text: "— vs yesterday", tone: "flat" };
     return { text: "new today", tone: "up" };
   }
   const pct = ((today - yesterday) / yesterday) * 100;
   const rounded = Math.round(pct);
-  if (rounded === 0) return { text: "0%", tone: "flat" };
+  if (rounded === 0) return { text: "0% vs yesterday", tone: "flat" };
   return {
-    text: `${rounded > 0 ? "+" : ""}${rounded}%`,
+    text: `${rounded > 0 ? "+" : ""}${rounded}% vs yesterday`,
     tone: rounded > 0 ? "up" : "down",
   };
 }
-
-const TONE = {
-  total: { number: "text-[#2B479B]", ring: "ring-2 ring-blue-100" },
-  new_today: { number: "text-emerald-500", ring: "ring-2 ring-emerald-100" },
-  contacted: { number: "text-blue-500", ring: "ring-2 ring-blue-100" },
-  converted: { number: "text-amber-500", ring: "ring-2 ring-amber-100" },
-  avg_response: { number: "text-emerald-500", ring: "ring-2 ring-emerald-100" },
-} as const;
 
 export function KpiStrip({
   countryCode,
@@ -76,25 +75,32 @@ export function KpiStrip({
   const [bumpTotal, setBumpTotal] = useState(0);
   const [bumpNewToday, setBumpNewToday] = useState(0);
   const [prevToday, setPrevToday] = useState<CountryTodayStats | null>(today);
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    BroadcastStatus | "PENDING"
+  >("PENDING");
   if (prevToday !== today) {
     setPrevToday(today);
     setBumpTotal(0);
     setBumpNewToday(0);
   }
 
-  useCountryBroadcast(countryCode, (lead, operation) => {
-    // Only count INSERT-equivalent events. The webhook path emits an UPDATE
-    // (the assignment flip), not an INSERT — but the `created` event_type is
-    // captured by `assigned_to` going from NULL → uuid. We treat any UPDATE
-    // payload where `assigned_to` is now non-null as a fresh assignment.
-    if (operation === "INSERT" || (operation === "UPDATE" && lead.assigned_to)) {
-      setBumpTotal((n) => n + 1);
-      setBumpNewToday((n) => n + 1);
-      // Coalesce server-authoritative refresh so the tiles re-sync after the
-      // optimistic bump. router.refresh() is debounced internally by Next.
-      router.refresh();
-    }
-  });
+  useCountryBroadcast(
+    countryCode,
+    (lead, operation) => {
+      // Only count INSERT-equivalent events. The webhook path emits an UPDATE
+      // (the assignment flip), not an INSERT — but the `created` event_type is
+      // captured by `assigned_to` going from NULL → uuid. We treat any UPDATE
+      // payload where `assigned_to` is now non-null as a fresh assignment.
+      if (operation === "INSERT" || (operation === "UPDATE" && lead.assigned_to)) {
+        setBumpTotal((n) => n + 1);
+        setBumpNewToday((n) => n + 1);
+        // Coalesce server-authoritative refresh so the tiles re-sync after the
+        // optimistic bump. router.refresh() is debounced internally by Next.
+        router.refresh();
+      }
+    },
+    (status) => setRealtimeStatus(status),
+  );
 
   const totalLeads = (today?.total_leads ?? 0) + bumpTotal;
   const newToday = (today?.new_today ?? 0) + bumpNewToday;
@@ -110,19 +116,28 @@ export function KpiStrip({
     today?.converted_yesterday ?? null,
   );
 
-  const tiles = [
+  interface TileSpec {
+    key: string;
+    label: string;
+    accent: MetricCardAccent;
+    value: string;
+    subtext: string | null;
+    delta: MetricCardDelta | null;
+  }
+
+  const tiles: TileSpec[] = [
     {
       key: "total",
       label: "Total Leads",
-      tone: TONE.total,
+      accent: "blue",
       value: totalLeads.toLocaleString(),
       subtext: "All sources",
-      delta: null as DeltaResult | null,
+      delta: null,
     },
     {
       key: "new_today",
       label: "New Today",
-      tone: TONE.new_today,
+      accent: "emerald",
       value: newToday.toLocaleString(),
       subtext: null,
       delta: newDelta,
@@ -130,7 +145,7 @@ export function KpiStrip({
     {
       key: "contacted",
       label: "Contacted",
-      tone: TONE.contacted,
+      accent: "blue",
       value: contactedToday.toLocaleString(),
       subtext: null,
       delta: contactedDelta,
@@ -138,7 +153,7 @@ export function KpiStrip({
     {
       key: "converted",
       label: "Converted",
-      tone: TONE.converted,
+      accent: "amber",
       value: rangeConverted.toLocaleString(),
       subtext: null,
       delta: convertedDelta,
@@ -146,7 +161,7 @@ export function KpiStrip({
     {
       key: "avg_response",
       label: "Avg Response Time",
-      tone: TONE.avg_response,
+      accent: avgResponseOnTarget ? "emerald" : "rose",
       value: avgResponseText,
       subtext: avgResponseOnTarget ? "Target: <5 min" : "Above 5 min target",
       delta: null,
@@ -154,49 +169,21 @@ export function KpiStrip({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div
+      className="grid grid-cols-2 lg:grid-cols-5 gap-4"
+      data-testid="kpi-strip"
+      data-realtime-status={realtimeStatus}
+    >
       {tiles.map((tile) => (
-        <div
+        <MetricCard
           key={tile.key}
-          data-testid={`kpi-strip-tile-${tile.key}`}
-          className={cn(
-            "bg-white rounded-xl px-4 py-3 sm:px-5 sm:py-4 border border-slate-200",
-            "transition-shadow duration-200 hover:shadow-md",
-            tile.tone.ring,
-          )}
-        >
-          <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
-            {tile.label}
-          </p>
-          <p className={cn("text-3xl font-bold tabular-nums", tile.tone.number)}>
-            {tile.value}
-          </p>
-          {tile.delta ? (
-            <p
-              className={cn(
-                "text-xs font-medium mt-1.5",
-                tile.delta.tone === "up"
-                  ? "text-emerald-600"
-                  : tile.delta.tone === "down"
-                    ? "text-red-500"
-                    : "text-slate-400",
-              )}
-            >
-              {tile.delta.text} vs yesterday
-            </p>
-          ) : (
-            <p
-              className={cn(
-                "text-xs mt-1.5",
-                tile.key === "avg_response" && tile.subtext === "Target: <5 min"
-                  ? "text-emerald-600 font-medium"
-                  : "text-slate-400",
-              )}
-            >
-              {tile.subtext}
-            </p>
-          )}
-        </div>
+          label={tile.label}
+          value={tile.value}
+          accent={tile.accent}
+          delta={tile.delta}
+          subtext={tile.subtext}
+          dataAttrs={{ "data-testid": `kpi-strip-tile-${tile.key}` }}
+        />
       ))}
     </div>
   );

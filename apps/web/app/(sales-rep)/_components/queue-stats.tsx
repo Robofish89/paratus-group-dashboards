@@ -1,16 +1,17 @@
 "use client";
 
-import { cn } from "@repo/ui";
+import { cn, MetricCard, type MetricCardAccent } from "@repo/ui";
 import { DateRangePicker } from "./date-range-picker";
 import type { DateRangeKey } from "@/app/_lib/date-range";
 
 /**
- * Stats strip for the agent queue header (plan 03-04 shape):
+ * Stats strip for the agent queue header (plan 03-04 shape, refactored to
+ * shared `MetricCard` primitive in plan 06-04 task 2):
  *
- *   To Call (live, paratus-blue)
- *   Follow-ups (live, orange-500)
- *   Converted (range-aware, emerald-500 — gamification anchor with green ring)
- *   Lost (range-aware, slate-500)
+ *   To Call    (live, paratus-blue)
+ *   Follow-ups (live, orange)
+ *   Converted  (range-aware, emerald — gamification anchor)
+ *   Lost       (range-aware, rose)
  *
  * The range picker sits to the right on desktop and stacks below on mobile.
  *
@@ -39,35 +40,14 @@ interface QueueStatsProps {
 interface StatTile {
   key: "to_call" | "follow_ups" | "converted" | "lost";
   label: string;
-  numberClass: string;
-  ring?: string;
+  accent: MetricCardAccent;
 }
 
 const TILES: StatTile[] = [
-  {
-    key: "to_call",
-    label: "To Call",
-    numberClass: "text-[#2B479B]",
-    ring: "ring-2 ring-blue-100",
-  },
-  {
-    key: "follow_ups",
-    label: "Follow-ups",
-    numberClass: "text-orange-500",
-    ring: "ring-2 ring-orange-100",
-  },
-  {
-    key: "converted",
-    label: "Converted",
-    numberClass: "text-emerald-500",
-    ring: "ring-2 ring-emerald-100",
-  },
-  {
-    key: "lost",
-    label: "Lost",
-    numberClass: "text-red-500",
-    ring: "ring-2 ring-red-100",
-  },
+  { key: "to_call", label: "To Call", accent: "blue" },
+  { key: "follow_ups", label: "Follow-ups", accent: "orange" },
+  { key: "converted", label: "Converted", accent: "emerald" },
+  { key: "lost", label: "Lost", accent: "rose" },
 ];
 
 export function QueueStats({
@@ -105,26 +85,13 @@ export function QueueStats({
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         {TILES.map((tile) => (
-          <div
+          <MetricCard
             key={tile.key}
-            data-tile={tile.key}
-            className={cn(
-              "bg-white rounded-xl border border-slate-200 px-4 py-3 sm:px-5 sm:py-4",
-              tile.ring,
-            )}
-          >
-            <p className="text-[11px] font-semibold tracking-[0.1em] text-slate-400 uppercase mb-1">
-              {tile.label}
-            </p>
-            <p
-              className={cn(
-                "text-3xl font-bold tabular-nums",
-                tile.numberClass,
-              )}
-            >
-              {values[tile.key]}
-            </p>
-          </div>
+            label={tile.label}
+            value={values[tile.key]}
+            accent={tile.accent}
+            dataAttrs={{ "data-tile": tile.key }}
+          />
         ))}
       </div>
     </div>

@@ -78,7 +78,12 @@ export { Textarea } from "./components/textarea";
 export { TabBar } from "./components/tab-bar";
 export type { TabBarProps, TabItem } from "./components/tab-bar";
 export { MetricCard } from "./components/metric-card";
-export type { MetricCardProps, MetricCardTrend } from "./components/metric-card";
+export type {
+  MetricCardProps,
+  MetricCardVariant,
+  MetricCardAccent,
+  MetricCardDelta,
+} from "./components/metric-card";
 export { SectionCard } from "./components/section-card";
 export type { SectionCardProps } from "./components/section-card";
 export { HorizontalBarChart } from "./components/horizontal-bar-chart";

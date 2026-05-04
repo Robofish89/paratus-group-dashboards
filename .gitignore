@@ -40,3 +40,7 @@ apps/web/playwright/.cache/
 # Stray root-level screenshots (real assets belong under apps/*/public)
 /*.png
 .claude/settings.local.json
+
+# Supabase logical backups (PII; large; never commit).
+# See docs/BACKUP_RESTORE.md.
+backups/

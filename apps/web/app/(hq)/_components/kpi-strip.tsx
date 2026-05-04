@@ -7,6 +7,7 @@ import {
   computeResponseStatus,
   type GroupTodayStats,
 } from "@repo/supabase/schemas";
+import type { BroadcastStatus } from "@repo/supabase/realtime";
 import { useGroupBroadcast } from "./use-group-broadcast";
 
 /**
@@ -81,22 +82,31 @@ export function KpiStrip({ today }: KpiStripProps) {
   const [bumpTotal, setBumpTotal] = useState(0);
   const [bumpToday, setBumpToday] = useState(0);
   const [prevToday, setPrevToday] = useState<GroupTodayStats | null>(today);
+  const [realtimeStatus, setRealtimeStatus] = useState<BroadcastStatus | "PENDING">(
+    "PENDING",
+  );
   if (prevToday !== today) {
     setPrevToday(today);
     setBumpTotal(0);
     setBumpToday(0);
   }
 
-  useGroupBroadcast((lead, operation) => {
-    // Same logic as country broadcast: webhook emits UPDATE (the assignment
-    // flip) rather than INSERT, so any UPDATE with non-null assigned_to is
-    // a fresh lead.
-    if (operation === "INSERT" || (operation === "UPDATE" && lead.assigned_to)) {
-      setBumpTotal((n) => n + 1);
-      setBumpToday((n) => n + 1);
-      router.refresh();
-    }
-  });
+  useGroupBroadcast(
+    (lead, operation) => {
+      // Same logic as country broadcast: webhook emits UPDATE (the assignment
+      // flip) rather than INSERT, so any UPDATE with non-null assigned_to is
+      // a fresh lead.
+      if (
+        operation === "INSERT" ||
+        (operation === "UPDATE" && lead.assigned_to)
+      ) {
+        setBumpTotal((n) => n + 1);
+        setBumpToday((n) => n + 1);
+        router.refresh();
+      }
+    },
+    (status) => setRealtimeStatus(status),
+  );
 
   const totalLeads = (today.total_leads_group ?? 0) + bumpTotal;
   const newToday = (today.new_today_group ?? 0) + bumpToday;
@@ -138,7 +148,11 @@ export function KpiStrip({ today }: KpiStripProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div
+      className="grid grid-cols-2 lg:grid-cols-5 gap-4"
+      data-testid="kpi-strip"
+      data-realtime-status={realtimeStatus}
+    >
       {tiles.map((tile) => (
         <div
           key={tile.key}

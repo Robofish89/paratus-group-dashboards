@@ -22,22 +22,23 @@ import {
  * the test user — service_role is used ONLY for setup/teardown so RLS is the
  * thing being tested, not the thing being bypassed.
  *
- * Setup state required (seeded by plan 02-02):
- *   - 1 lead with country_code='MZ' (smoke seed)
- *   - 1 lead with country_code='BW' (smoke seed)
- *   - 1 lead with country_code='ZA' (smoke seed)
+ * Setup is self-seeding: previously this test relied on smoke seed data from
+ * plan 02-02, but those rows have been cleaned up by other suites over time.
+ * beforeAll now inserts what each branch needs and afterAll removes it.
  * Three users from plan 01-02 (Gmail+ aliases) drive the assertions.
  */
 describe("cross-tenant RLS on public.leads", () => {
   let mzAgentId: string;
   let assignedLeadId: string | null = null;
+  let bwLeadId: string | null = null;
 
   beforeAll(async () => {
-    // Make sure the agent-visibility branch has something to see: assign the
-    // existing MZ smoke lead to the MZ agent so the agent's "see only mine"
-    // assertion has signal. Service-role bypasses RLS for this setup write.
     const admin = createServiceClient();
     mzAgentId = await getUserId(TEST_USERS.agentMz);
+
+    // Ensure at least one MZ lead exists (for the country-admin "own country"
+    // and HQ "see all" branches), then assign it to the MZ agent so the agent's
+    // "see only mine" assertion has signal.
     const { data: mzLead, error: mzErr } = await admin
       .from("leads")
       .select("id")
@@ -46,22 +47,65 @@ describe("cross-tenant RLS on public.leads", () => {
       .limit(1)
       .maybeSingle();
     if (mzErr) throw new Error(`seed lookup failed: ${mzErr.message}`);
-    if (!mzLead) throw new Error("expected at least one MZ smoke lead from plan 02-02");
 
-    assignedLeadId = mzLead.id;
+    let mzLeadId: string;
+    if (mzLead) {
+      mzLeadId = mzLead.id;
+    } else {
+      const { data: insertedMz, error: insertMzErr } = await admin
+        .from("leads")
+        .insert({
+          country_code: "MZ",
+          form_slug: "starlink",
+          status: "new",
+          name: "RLS Test MZ",
+          email: `rls-mz-${Date.now()}@paratus.test`,
+          message: "rls.cross-tenant self-seed",
+          submitted_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (insertMzErr || !insertedMz) {
+        throw new Error(`MZ self-seed failed: ${insertMzErr?.message}`);
+      }
+      mzLeadId = insertedMz.id;
+    }
+
+    assignedLeadId = mzLeadId;
     const { error: updateErr } = await admin
       .from("leads")
       .update({ assigned_to: mzAgentId })
-      .eq("id", mzLead.id);
+      .eq("id", mzLeadId);
     if (updateErr) throw new Error(`seed assign failed: ${updateErr.message}`);
+
+    // Seed one BW lead so the HQ "see leads from both MZ and BW" branch has
+    // signal. RLS bypass is intentional for setup; assertions still run from
+    // anon-key clients so RLS is what's under test.
+    const { data: bw, error: bwErr } = await admin
+      .from("leads")
+      .insert({
+        country_code: "BW",
+        form_slug: "starlink",
+        status: "new",
+        name: "RLS Test BW",
+        email: `rls-bw-${Date.now()}@paratus.test`,
+        message: "rls.cross-tenant self-seed",
+        submitted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (bwErr || !bw) throw new Error(`BW self-seed failed: ${bwErr?.message}`);
+    bwLeadId = bw.id;
   });
 
   afterAll(async () => {
-    // Roll the assignment back so plan 02-06's other tests (and future plans)
-    // start from the same clean slate the cross-tenant assertions assume.
-    if (!assignedLeadId) return;
     const admin = createServiceClient();
-    await admin.from("leads").update({ assigned_to: null }).eq("id", assignedLeadId);
+    if (assignedLeadId) {
+      await admin.from("leads").update({ assigned_to: null }).eq("id", assignedLeadId);
+    }
+    if (bwLeadId) {
+      await admin.from("leads").delete().eq("id", bwLeadId);
+    }
   });
 
   test("country_admin@MZ cannot read leads from country_code='BW'", async () => {

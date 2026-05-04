@@ -354,7 +354,14 @@ BEGIN
   SELECT
     ur.user_id AS agent_id,
     ur.display_name AS full_name,
-    count(l.id)::bigint AS leads_assigned,
+    -- Range-windowed: leads created in [p_from, p_to) and currently assigned
+    -- to this agent. Without the window, the count would balloon to the
+    -- agent's lifetime assignment total even when the caller asked for a
+    -- specific reporting window.
+    count(l.id) FILTER (
+      WHERE l.created_at >= p_from
+        AND l.created_at <  p_to
+    )::bigint AS leads_assigned,
     count(l.id) FILTER (
       WHERE l.first_contacted_at IS NOT NULL
         AND l.first_contacted_at >= p_from

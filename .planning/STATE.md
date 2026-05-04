@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
 current_phase: 05-hq-overview
-current_plan: 01
+current_plan: 02
 plan_status: shipped
-next_plan: 05-02
+next_plan: 05-03
 ---
 
 # Project State
@@ -18,7 +18,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
-| 05-hq-overview | in progress (plan 05-01 shipped 2026-05-04) | 2026-05-04 |
+| 05-hq-overview | in progress (plans 05-01 + 05-02 shipped 2026-05-04) | 2026-05-04 |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
 
@@ -62,7 +62,7 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
 | 05-01 | HQ overview DB foundation — 3 views + 1 RPC + 1 broadcast trigger + 1 RLS policy + 8 vitest cases | shipped | `05-01-SUMMARY.md` |
-| 05-02 | DAL + Zod + UI shell | pending | – |
+| 05-02 | DAL + Zod + 4 React components + page composition + 6 vitest cases | shipped | `05-02-SUMMARY.md` |
 | 05-03 | UI components + visual checkpoint | pending | – |
 
 ## Key decisions still in force
@@ -128,9 +128,20 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 - **Plan 05-01 — `country_performance_today.avg_response_seconds` is ALL-TIME.** Today-only would be too volatile across small-volume countries.
 - **Plan 05-01 — `group:all` realtime topic + `hq_group_topic` policy.** One trigger replaces 12 simultaneous per-country subscriptions per HQ tab. Existing `hq_country_topic` policy (00008) stays — HQ retains the ability to subscribe to a specific `country:<code>` topic when drilling into a country page.
 - **Plan 05-01 — RLS NOT tightened on the new HQ views.** Country admins can technically `SELECT * FROM group_today_stats` and get country-scoped sums (RLS hides their other-country leads). Route layer (`apps/web/app/(hq)/layout.tsx requireRole(['hq_admin'])`) is the access boundary, kept symmetrical with how `country_today_stats` works for HQ admin reads.
+- **Plan 05-02 — `computeResponseStatus` + `RESPONSE_STATUS_THRESHOLDS` live in `schemas/group.ts`, NOT `dal/group.ts`.** Pure helper, no `server-only` boundary. Client components (`<KpiStrip>`, `<CountryLeaderboard>`) import it directly from `@repo/supabase/schemas`; the DAL re-exports for ergonomic server-side imports. Plan template originally placed it in `dal/`; moved at execution time to fix a `'server-only' cannot be imported from a client component'` build error.
+- **Plan 05-02 — Status thresholds: null → red, <300s → green, ≤480s → amber, >480s → red.** Single source of truth: `RESPONSE_STATUS_THRESHOLDS = { green: 300, amber: 480 }`. Read by leaderboard dots, KPI strip ring, the legend below the leaderboard, AND the speed-to-lead trend chart's `<ReferenceLine>` (so the 5-min target is never a magic number anywhere).
+- **Plan 05-02 — 5 KPI tiles, mockup verbatim.** Total Leads (Group) / Countries Active / Conversion Rate / Avg Speed to Lead / Leads Today. The mockup's "+2.1%" comparator on Conversion Rate is dropped in v1 (no comparator window decided — RESEARCH.md open question 4).
+- **Plan 05-02 — `<KpiStrip>` "Avg Speed to Lead" tile colour driven by `computeResponseStatus(seconds)`.** Green/amber/red ring matches the leaderboard dots. The misleading-mean caveat (a green tile here doesn't mean every country is on target) is documented in JSDoc; the leaderboard is the truth.
+- **Plan 05-02 — country leaderboard drill-in is `<Link href='/<slug>'>` on the country name only.** Phase 4 plan 04-03 already wired the country-admin layout to accept `hq_admin` — drill-in Just Works. Future Phase 6 tightening MUST keep `hq_admin` in that allow-list.
+- **Plan 05-02 — `<SpeedToLeadTrendCard>` uses paratus-blue (#2B479B) gradient + Recharts AreaChart with `<ReferenceLine y={RESPONSE_STATUS_THRESHOLDS.green}>`.** Country-admin's per-country chart uses emerald (matches the gauge tile); group-wide HQ chart uses paratus-blue (matches "Total Leads (Group)" tile and the mockup). Same chart primitive; different colour family.
+- **Plan 05-02 — HQ overview page is a Server Component; broadcasts subscribe at the leaf.** `Promise.all` over 4 reads in the page; only `<KpiStrip>` opens a websocket via `useGroupBroadcast`. Same pattern Phase 4 locked: server-fetched truth + leaf-level optimistic bumps + `router.refresh()` on every event.
 
 ## Recent commits (most recent first)
 
+- `86d42db` — feat(05-02): compose HQ overview page on top of plan 05-01 surface
+- `27fef8f` — feat(05-02): HQ overview UI primitives — broadcast hook + 4 React cards
+- `61fb4b5` — feat(05-02): group DAL — Zod schemas, 4 reads, status-bucket helper
+- `f7c6113` — docs(05-01): close plan — SUMMARY + STATE update
 - `e025971` — test(05-01): HQ overview integration tests — RPC guards + RLS shape + realtime
 - `d526f0c` — feat(05-01): migration 00013 — HQ overview views + RPC + group:all topic
 - `754266e` — test(04-04): flip reassign assertion after migration 00012 lands
@@ -187,15 +198,21 @@ Clean. Untracked `.claude/` directory (local Claude Code config) and `excalidraw
 
 ## Next move
 
-**Plan 05-01 shipped.** Migration 00013 applied to `tgswsdfaszvztbpczfve`: 3 security_invoker views (`group_today_stats`, `country_performance_today`, `leads_by_service_group`), 1 hq_admin-only RPC (`group_speed_to_lead_series`), 1 broadcast trigger (`leads_broadcast_group` → `group:all`), 1 RLS policy (`hq_group_topic`). Database types regenerated. 8/8 vitest cases green, 3 flake-free runs. Type-check + lint clean.
+**Plan 05-02 shipped.** HQ overview page now wired against migration 00013:
+- Group DAL with 4 typed reads + Zod schemas + `computeResponseStatus`/`RESPONSE_STATUS_THRESHOLDS` helper (in `schemas/group.ts` for client-component access, re-exported from `dal/group.ts`).
+- `useGroupBroadcast` thin wrapper pinned to `topic: 'group:all'`, `event: '*'`.
+- 4 React components: KPI strip (5 ring-around-card tiles, optimistic broadcast bumps), country leaderboard (12 rows, status dots, drill-in `<Link>`, legend), all-time leads-by-service horizontal-bar card, 7-day speed-to-lead Recharts AreaChart with 5-min reference line.
+- Live composition at `apps/web/app/(hq)/page.tsx` replacing the Phase 1 placeholder. `Promise.all` over 4 server reads; broadcast subscribes at the leaf.
+- 6/6 vitest cases green, 3 flake-free runs. Type-check + lint + production build clean.
 
 Phase 4 remains shipped (`phase-4-complete` tag staged locally; push pending explicit user approval, same posture as `phase-2-complete` and `phase-3-complete`).
 
-**Plan 05-02 — DAL + Zod + UI shell** is next. Surface to build per 05-01 SUMMARY's "Next Phase Readiness":
-- `packages/supabase/src/dal/group.ts` — 4 query functions + Zod schemas + `computeResponseStatus(seconds)` helper
-- `packages/supabase/src/realtime/use-group-broadcast.ts` — thin wrapper over `usePrivateBroadcast` with `topic: 'group:all', event: '*'`
-- Promote `parseRangeParams` to `apps/web/app/_lib/date-range.ts` (Phase 5 is the third caller per 04-RESEARCH.md line 233)
-- Wire `apps/web/app/(hq)/page.tsx` to render the KPI strip + leaderboard + leads-by-service + speed-to-lead trend, mirroring the country-admin shell.
+**Plan 05-03 — UI components + visual checkpoint** is next. Per 05-02 SUMMARY's "Visual fidelity items":
+- Pixel-level review vs `docs/design-reference/hq-dashboard.html` (mockup parity is non-negotiable).
+- Conversion Rate delta arrow decision (week-over-week vs month-over-month comparator).
+- Y-axis label format on the speed-to-lead trend (currently `m:ss`; mockup shows whole minutes).
+- Form-slug labels in `<LeadsByServiceCard>` — verify against the actual seeded slug values from migration 00004.
+- Playwright golden-path E2E for HQ overview (mirror Phase 4 plan 04-04's pattern).
 
 Carry-overs explicitly tracked into Phase 6:
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).

@@ -1,7 +1,7 @@
 ---
 last_updated: 2026-05-04
 current_phase: 06-production-hardening
-current_plan: 04
+current_plan: 03
 plan_status: shipped
 next_plan: 06-05
 ---
@@ -73,7 +73,7 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 |------|-----------|--------|---------|
 | 06-01 | Resend SLA breach cron | in progress (parallel) | – |
 | 06-02 | audit log + reassign instrumentation | in progress (parallel) | – |
-| 06-03 | RLS InitPlan caching + broadcast lockdown (00016 + 00017) | in progress (parallel) | – |
+| 06-03 | proxy rename + RLS InitPlan caching (00016) + broadcast lockdown (00017) + Upstash rate-limit + createAdminClient convergence | shipped | `06-03-SUMMARY.md` |
 | 06-04 | UX/scale carry-overs — cursor pagination + MetricCard consolidation + range picker + e2e flake fix + env doc | shipped | `06-04-SUMMARY.md` |
 | 06-05 | TBD (carry-overs not closed by 06-01..06-04) | pending | – |
 
@@ -85,14 +85,14 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - `country_code` is enum on `user_roles` (auth-side strictness) but `text` on `countries.code` (FK target for leads/callbacks) — accepted asymmetry, see plan 02-01 SUMMARY.
 - Migration filenames are sequential `0000N_*.sql`; new plan numbers do NOT correspond to migration numbers. Plan 03-01 took `00009`; plan 03-04 took `00010`. Next migration is `00011`.
 - `lead_events.country_code` denormalised from `leads` (deviation from PRD) — symmetric RLS, indexable. Maintained by BEFORE INSERT trigger.
-- All Phase 2 + Phase 3 RLS policies use `(SELECT auth.jwt()/auth.uid())` wrap for InitPlan caching. All views set `security_invoker = true`. (Phase 1's `user_roles` policies are unwrapped — small table, low cost; cleanup in Phase 6.)
+- All RLS policies use `(SELECT auth.jwt()/auth.uid())` wrap for InitPlan caching across Phase 1 (post-06-03) + Phase 2 + Phase 3 + Phase 4 + Phase 5. All views set `security_invoker = true`.
 - Dedupe bucket uses `date_bin('5 minutes', submitted_at, '2000-01-01Z'::timestamptz)` (the IMMUTABLE timestamptz overload), not `date_trunc + extract` — required because the expression sits inside a unique index.
 - Realtime uses Broadcast-from-Database (not `postgres_changes`); private channels are auth-checked via 3 RLS policies on `realtime.messages`.
 - `ingest_lead(jsonb)` is the single atomic entry point for lead creation; webhook (02-04) and CSV importer (02-05) both wrap it. Service-role only (`REVOKE ALL FROM public/anon/authenticated; GRANT EXECUTE TO service_role`).
 - Webhook ingest is HMAC-authenticated, not session-authenticated. Middleware bypasses cookie auth for any `/api/leads/*` path; each route does its own auth (HMAC for the webhook, cookie session for the importer). The redundant per-path `PUBLIC_PATHS` entry that plan 02-04 added was removed in plan 02-06 — single source of truth is now the prefix block.
 - `runtime='nodejs'` on the webhook because Edge has no `crypto.timingSafeEqual`.
 - `PARATUS_INGEST_SECRET` provisioned in Vercel for prod/preview/dev. Production + Preview are flagged Sensitive; Development is plain (Vercel rejects `--sensitive` on the development target). Same value across all three; rotate together via the runbook in `.planning/phases/02-data-model-ingestion/02-USER-SETUP.md`.
-- Path 3 CSV importer (`/api/leads/import-csv`) reuses Phase 1's `createAdminClient` (`@repo/supabase/admin`) instead of plan 02-04's new `createServiceRoleClient` in `server.ts` — same key, same options. Both names exist in the codebase; convergence to one is a small Phase 6 cleanup.
+- Path 3 CSV importer (`/api/leads/import-csv`) and all DAL service-role call sites use `createAdminClient` (`@repo/supabase/admin`). The duplicate `createServiceRoleClient` in `server.ts` was deleted in plan 06-03 — single name across the codebase.
 - Integration tests authenticate test users via the magiclink-cookie technique (`admin.generateLink` → `anon.verifyOtp`) — no test passwords in env. Service-role client is setup-only; assertions run from anon-key clients carrying real user JWTs so RLS is the thing under test.
 - Realtime tests listen on `event:'*'` not `'INSERT'`. The agent broadcast trigger emits `TG_OP`, and the webhook path triggers an `UPDATE` (assign_lead changes assigned_to from NULL → agent_id) rather than the `INSERT` (which has assigned_to=NULL).
 - Phase 3 queue RPCs (`mark_lead_contacted`, `complete_call`, `schedule_callback`, `record_no_answer`, `agent_stats_in_range`) are EXECUTE-granted to `authenticated`, not `service_role` like `ingest_lead`. They run from the agent's authed cookie session, gate `auth.uid() = leads.assigned_to` AND `auth.jwt() ->> country_code = leads.country_code` inside the SECURITY DEFINER function (defence in depth — the definer-rights bypass RLS, so the inside-function check is the only enforcement on writes).
@@ -155,9 +155,22 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - **Plan 06-04 — single `MetricCard` primitive in `@repo/ui` backs all three dashboards.** Two variants (`ring` default, `top-bar` for the original mockup look). Seven accent families (blue / orange / emerald / rose / slate / amber / violet). All `data-*` hooks (`data-tile`, `data-testid`, `data-realtime-status`) flow through the `dataAttrs` prop. The legacy `MetricCardTrend` type was dropped (no consumers); `MetricCardDelta` (`{ text, tone }`) is the replacement.
 - **Plan 06-04 — country-admin range picker re-uses the sales-rep `DateRangePicker` directly** rather than lifting it to `@repo/ui`. The UI package has no `next` peer dep today; lifting would have required adding one. Thin `RangePicker` wrapper at `(country-admin)/[country]/_components/range-picker.tsx` is the seam if behaviour ever needs to diverge. URL contract from plan 04-03 is unchanged — picker only adds the UI.
 - **Plan 06-04 — country-admin `KpiStrip` now exposes `data-realtime-status`** for symmetry with HQ. No spec depends on it today; available for the broadcast-gating pattern Phase 5 used.
+- **Plan 06-03 — `apps/web/middleware.ts` → `apps/web/proxy.ts`** via Next.js 16 codemod (`@next/codemod middleware-to-proxy`). Named export `middleware` → `proxy`. Matcher and `/api/leads/*` HMAC bypass preserved. Build now reports `ƒ Proxy (Middleware)` — the Phase 1-onwards deprecation warning is gone. Comments referencing the concept of "middleware" left untouched (they refer to the Next.js feature, not the file name).
+- **Plan 06-03 — three Phase 1 `user_roles` policies wrapped for InitPlan caching** (00016): `HQ admins read all user_roles`, `HQ admins manage user_roles`, `Users read own role`. `Country admins read country user_roles` (added by 04-04) and `hq_group_topic` on `realtime.messages` (00013) were ALREADY wrapped at the source — STATE.md tracking was stale; 00016 narrowed in-flight after live SQL audit. Role narrowing (`TO authenticated`) was already present at apply-time.
+- **Plan 06-03 — `supabase_auth_admin`'s "Auth admin reads ... for JWT hook" policy on `user_roles` left untouched.** Scoped to a privileged role, runs once per JWT mint inside Supabase's auth hook — no row-loop, no caching benefit.
+- **Plan 06-03 — three `broadcast_lead_to_*` trigger functions REVOKE'd EXECUTE from PUBLIC, anon, authenticated** (00017). Trigger context invokes them as the table owner, not the calling session — explicit GRANT back is unnecessary. Closes a gap that was open since plan 02-03 (agent + country triggers) and 05-01 (group trigger).
+- **Plan 06-03 — Upstash rate-limit lib at `packages/supabase/src/lib/rate-limit.ts`.** Sliding-window via `@upstash/ratelimit` + `@upstash/redis`. Two limiters: `authLimiter` (5 req/60s, prefix `paratus:auth`) consumed in `proxy.ts` on auth-flow paths; `ingestLimiter` (60 req/60s, prefix `paratus:ingest`) consumed in `/api/leads/ingest` BEFORE HMAC validation. Lazy init (`LazyLimiter` class) — first runtime call resolves Redis. Required so `next build` page-data collection succeeds in production NODE_ENV without runtime env at build time. Dev fail-open via `makeShim`; prod fail-closed at first call. `safeLimit()` wraps `try/catch` and ALLOWS on Upstash error (DOS ceiling, not auth boundary).
+- **Plan 06-03 — ingest rate-limit key = `sha256(PARATUS_INGEST_SECRET)`, not per-IP.** n8n cloud egresses from a small shared pool; per-secret means each tenant gets its own bucket. Hashing keeps the secret out of Upstash logs/keys. Rate-limit fires BEFORE HMAC validation — 401 responses also count against the bucket so probes can't side-channel secret-validity via timing or header presence.
+- **Plan 06-03 — `/api/auth/logout` excluded from auth-path rate limit.** Logout is intent-revealing but harmless; capping it traps a user mid-session if they're behind a flooded IP.
+- **Plan 06-03 — `createServiceRoleClient` deleted from `packages/supabase/src/server.ts`; `createAdminClient` is the single name.** All call sites converged: `dal/events.ts`, `dal/leads.ts`, `apps/web/app/api/e2e-login/route.ts`. `git grep -n createServiceRoleClient` returns only a single deprecation comment in `server.ts`.
+- **Plan 06-03 — six security headers verified in `next.config.ts`:** Content-Security-Policy, Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Zero diff (Permissions-Policy was already added in a prior phase).
 
 ## Recent commits (most recent first)
 
+- `9cf90c8` — feat(06-03): Upstash rate-limit on auth + ingest paths; converge to createAdminClient
+- `92b8b55` — feat(06-03): migrations 00016 + 00017 — RLS InitPlan caching + broadcast lockdown
+- `ab09c78` — chore(06-03): rename middleware.ts to proxy.ts (Next.js 16)
+- `1544d3e` — feat(06-02): migration 00015 — audit_log + record_audit RPC + DAL
 - `6810d85` — feat(06-04): country-admin range picker + no-answer e2e timeout + E2E env doc
 - `7d5832e` — refactor(06-04): consolidate stat tile to single MetricCard primitive
 - `86129f7` — feat(06-04): cursor pagination on country-admin lead list
@@ -214,13 +227,13 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - CSV importer URL: https://paratus-group-dashboards.vercel.app/api/leads/import-csv
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00013 + 00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Migrations 00014–00017 owned by parallel-running 06-01/06-02/06-03 — apply order may interleave
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Plan 06-03 added 00016 (Phase 1 RLS InitPlan caching) + 00017 (broadcast trigger function REVOKE).
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
 ## Working tree status at last update
 
-Plan 06-04 lane is clean (3 commits land cleanly). Sibling plans 06-01 / 06-02 / 06-03 are running in parallel and have unstaged work in the tree (Resend SLA cron, audit log, RLS InitPlan caching) — those will land via their own plan close-outs.
+Plans 06-03 + 06-04 + 06-02 lanes shipped. Sibling 06-01 (Resend SLA cron) lane has unstaged work in the tree — lands via its own plan close-out.
 
 ## Next move
 
@@ -245,12 +258,24 @@ Plan 06-04 lane is clean (3 commits land cleanly). Sibling plans 06-01 / 06-02 /
 - Sales-rep no-answer 3× e2e flake fix (8s → 12s timeout).
 - `.env.local.example` documents `E2E_AUTH_ENABLED=true` + `.next` dev-cache restart cadence.
 
-**Plans 06-01 / 06-02 / 06-03** are running in parallel — close them out next, then optionally seal Phase 6 with a 06-05 plan covering the remaining carry-overs below (pilot-country runbook, hermetic vitest, sidebar real surfaces, conversion-rate comparator window decision).
+**Plan 06-03 shipped.** Production hardening sweep closed in three atomic commits:
+- `apps/web/middleware.ts` → `apps/web/proxy.ts` via Next.js 16 codemod. Build now reports `ƒ Proxy (Middleware)`; deprecation warning gone.
+- Migration 00016: three Phase 1 `user_roles` policies wrapped in `(SELECT auth.<fn>())` for InitPlan caching. Live audit narrowed scope — `hq_group_topic` already shipped wrapped at 00013.
+- Migration 00017: REVOKE EXECUTE on three `broadcast_lead_to_*` trigger functions from PUBLIC, anon, authenticated.
+- Upstash rate-limit live on auth-flow paths (5 req/60s/IP) + ingest webhook (60 req/60s/secret-hash). Lazy-init pattern; dev fail-open via shim, prod fail-closed at first call.
+- `createServiceRoleClient` deleted; `createAdminClient` is the single name across the codebase.
+- Six security headers verified in `next.config.ts` — zero diff.
+- 06-USER-SETUP.md created — Upstash provisioning checklist + verification curls.
 
-Carry-overs still open after 06-04:
+**Plan 06-01** (Resend SLA breach cron) still running in parallel — close it out next, then optionally seal Phase 6 with a 06-05 plan covering the remaining carry-overs below.
+
+Carry-overs still open after 06-03 + 06-04:
 - Pilot-country runbook (one country running 48h with real leads, no incidents).
 - Hermetic vitest setup (route-driven tests need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
-- `createServiceRoleClient` and `createAdminClient` convergence.
-- Phase 1 `user_roles` policies InitPlan caching symmetry (06-03 covered `realtime.messages` only).
 - Replace HQ sidebar stubs with real surfaces (drill-in directory / service mix over time / group admin settings).
 - Conversion-rate comparator window decision (week-over-week vs month-over-month).
+- Supabase performance-advisor cache shows stale `auth_rls_initplan` warnings on policies the SQL audit confirms are wrapped — re-check at phase boundary.
+- `multiple_permissive_policies` warnings on `leads`, `lead_events`, `callbacks`, `audit_log`, `user_roles` — same role + same action across HQ-all + country-scoped + agent-own policies. Low pilot-scale cost; consolidating into single role-aware policies is a Phase 7 job.
+- `auth_leaked_password_protection` Supabase Auth setting (admin-flip via dashboard).
+- `function_search_path_mutable` on `handle_updated_at`, `custom_access_token_hook`, `set_lead_event_country_code` — three SECURITY DEFINER functions need `SET search_path = ''`. Quick patch migration.
+- **From 06-03 Upstash setup** — Provision `UPSTASH_REDIS_REST_URL` / `_TOKEN` in Vercel Production + Preview before next prod deploy; otherwise auth + ingest paths return 500 at first request. See `06-USER-SETUP.md`.

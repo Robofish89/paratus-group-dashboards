@@ -9,11 +9,13 @@ import {
 } from "@/app/_lib/auth";
 import { CountryAdminShell } from "../../_components/country-admin-shell";
 import { LeadList, type LeadListRow } from "../_components/lead-list";
+import { decodeCursor, encodeCursor } from "../_lib/leads-cursor";
 
 /**
- * Plan-04-03 surface — country admin lead list. Fetches a paginated +
- * filtered slice of leads via the cookie-authed Supabase client (RLS country-
- * locks rows for country admins; HQ admins see all).
+ * Plan-04-03 surface (cursor-paginated in plan 06-04) — country admin lead
+ * list. Fetches a filtered + cursor-paginated slice of leads via the
+ * cookie-authed Supabase client (RLS country-locks rows for country admins;
+ * HQ admins see all).
  *
  * Filter contract (URL → query):
  *   ?status   = 'new' | 'contacted' | 'qualified' | 'converted' | 'lost'
@@ -21,13 +23,14 @@ import { LeadList, type LeadListRow } from "../_components/lead-list";
  *   ?from     = ISO date (gte created_at)
  *   ?to       = ISO date (lt  created_at)
  *   ?q        = search across name | email | phone (ILIKE %q%)
- *   ?page     = 1-indexed, default 1
+ *   ?cursor   = base64url-encoded (created_at, id) tuple from the last row
+ *               of the previous page; absent on page 1
  *
- * Pagination is offset-based for v1. Cursor migration is logged in
- * 04-03-SUMMARY's Phase 6 carry-overs (Phase 4 traffic profile makes offset
- * fine — Paratus's largest active country has ~5k leads). Realtime broadcast
- * is deliberately NOT subscribed on this view (RESEARCH.md pitfall 8 —
- * pagination + concurrent inserts shifts indices).
+ * Pagination is keyset (cursor) — see plan 06-04 task 1 + migration 00018
+ * for the composite index `leads_created_at_id_desc_idx` that backs the
+ * tuple-compare lookup. Realtime broadcast is deliberately NOT subscribed on
+ * this view (RESEARCH.md pitfall 8 — pagination + concurrent inserts shifts
+ * indices).
  */
 const PAGE_SIZE = 50;
 
@@ -46,13 +49,6 @@ function readParam(value: string | string[] | undefined): string | null {
   return value ?? null;
 }
 
-function parsePage(value: string | null): number {
-  if (!value) return 1;
-  const n = Number.parseInt(value, 10);
-  if (!Number.isFinite(n) || n < 1) return 1;
-  return n;
-}
-
 export default async function CountryAdminLeadsPage({
   params,
   searchParams,
@@ -64,7 +60,7 @@ export default async function CountryAdminLeadsPage({
     from?: string | string[];
     to?: string | string[];
     q?: string | string[];
-    page?: string | string[];
+    cursor?: string | string[];
   }>;
 }) {
   const [{ country }, sp] = await Promise.all([params, searchParams]);
@@ -86,10 +82,11 @@ export default async function CountryAdminLeadsPage({
   const from = readParam(sp.from);
   const to = readParam(sp.to);
   const q = readParam(sp.q);
-  const page = parsePage(readParam(sp.page));
+  const cursor = decodeCursor(readParam(sp.cursor));
 
   const supabase = await createClient();
 
+  // Fetch one extra row to detect "has more" without a second count round-trip.
   let query = supabase
     .from("leads")
     .select(
@@ -97,7 +94,8 @@ export default async function CountryAdminLeadsPage({
       { count: "exact" },
     )
     .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    .order("id", { ascending: false })
+    .limit(PAGE_SIZE + 1);
 
   if (status) query = query.eq("status", status);
   if (service) query = query.eq("form_slug", service);
@@ -107,6 +105,14 @@ export default async function CountryAdminLeadsPage({
     const safe = q.replace(/[,()]/g, " ").trim();
     query = query.or(
       `name.ilike.%${safe}%,email.ilike.%${safe}%,phone.ilike.%${safe}%`,
+    );
+  }
+  if (cursor) {
+    // Tuple compare: (created_at, id) < (cursor.created_at, cursor.id).
+    // PostgREST `.or()` lets us express the OR-of-AND form that PostgreSQL
+    // would normally write as `(a, b) < (x, y)`.
+    query = query.or(
+      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
     );
   }
 
@@ -121,7 +127,7 @@ export default async function CountryAdminLeadsPage({
     throw new Error(`leads list query failed: ${leadsResult.error.message}`);
   }
 
-  const leads = (leadsResult.data ?? []) as Array<{
+  const allRows = (leadsResult.data ?? []) as Array<{
     id: string;
     name: string;
     email: string | null;
@@ -133,6 +139,9 @@ export default async function CountryAdminLeadsPage({
     created_at: string;
   }>;
 
+  const hasMore = allRows.length > PAGE_SIZE;
+  const visibleLeads = hasMore ? allRows.slice(0, PAGE_SIZE) : allRows;
+
   const total = leadsResult.count ?? 0;
 
   const agentLookup = new Map(
@@ -143,7 +152,7 @@ export default async function CountryAdminLeadsPage({
     (formsResult.data ?? []).map((f) => [f.slug, f.display_name]),
   );
 
-  const rows: LeadListRow[] = leads.map((lead) => ({
+  const rows: LeadListRow[] = visibleLeads.map((lead) => ({
     id: lead.id,
     name: lead.name,
     email: lead.email,
@@ -163,6 +172,13 @@ export default async function CountryAdminLeadsPage({
     slug: f.slug,
     label: f.display_name,
   }));
+
+  // Build the next-page cursor from the last visible row.
+  const lastRow = visibleLeads.at(-1);
+  const nextCursor =
+    hasMore && lastRow
+      ? encodeCursor({ created_at: lastRow.created_at, id: lastRow.id })
+      : null;
 
   // Build the export-CSV link with the same active filters so admins get a
   // file matching what they're looking at.
@@ -186,8 +202,8 @@ export default async function CountryAdminLeadsPage({
       <LeadList
         rows={rows}
         total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
+        nextCursor={nextCursor}
+        hasCursor={cursor !== null}
         agents={agents.map((a) => ({
           user_id: a.user_id,
           display_name: a.display_name ?? "Agent",

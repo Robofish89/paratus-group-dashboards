@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Download, MoreVertical } from "lucide-react";
+// Note: cursor pagination replaced offset pagination in plan 06-04. The
+// component drives navigation via `?cursor=<base64url>` rather than
+// `?page=N`. "Prev" walks browser history — keyset pagination doesn't admit
+// a cheap "previous page" cursor without keeping a stack, so we lean on the
+// natural URL history to walk backwards.
 import {
   Button,
   Input,
@@ -22,13 +27,16 @@ import {
 import { ReassignDialog } from "./reassign-dialog";
 
 /**
- * Filterable + paginated lead list for the country admin surface (plan
- * 04-03). Server component fetches the page; this client component renders
- * the filter row, table, pagination, and the per-row reassign dialog.
+ * Filterable + cursor-paginated lead list for the country admin surface
+ * (plan 04-03; cursor pagination shipped in plan 06-04). Server component
+ * fetches the page; this client component renders the filter row, table,
+ * cursor-driven Next button, and the per-row reassign dialog.
  *
- * URL state contract (driven via router.replace, not router.push, so the
- * back button doesn't accumulate filter steps):
- *   ?status, ?service, ?from, ?to, ?q, ?page
+ * URL state contract (driven via router.replace for filter changes — back
+ * button doesn't accumulate filter steps; router.push for Next so back
+ * walks pages):
+ *   ?status, ?service, ?from, ?to, ?q   — filter inputs (replace)
+ *   ?cursor=<base64url>                  — keyset pagination (push)
  *
  * Reassignment posts to /api/country-admin/reassign — on success the dialog
  * calls router.refresh() so the list re-renders with the new assignee from
@@ -63,8 +71,11 @@ export interface LeadListAgent {
 interface LeadListProps {
   rows: LeadListRow[];
   total: number;
-  page: number;
-  pageSize: number;
+  /** Base64url-encoded (created_at, id) cursor for the next page; null when
+   * there is no further data. */
+  nextCursor: string | null;
+  /** Whether the current view is past page 1 (i.e. a `?cursor=` is active). */
+  hasCursor: boolean;
   agents: LeadListAgent[];
   formOptions: Array<{ slug: string; label: string }>;
   filters: {
@@ -145,8 +156,8 @@ const ALL_SERVICES_VALUE = "__all__";
 export function LeadList({
   rows,
   total,
-  page,
-  pageSize,
+  nextCursor,
+  hasCursor,
   agents,
   formOptions,
   filters,
@@ -164,13 +175,12 @@ export function LeadList({
   const [fromInput, setFromInput] = useState(filters.from ?? "");
   const [toInput, setToInput] = useState(filters.to ?? "");
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const fromIndex = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const toIndex = Math.min(total, page * pageSize);
+  const showingCount = rows.length;
+  const canGoNext = nextCursor !== null;
 
-  function pushFilters(next: Partial<LeadListProps["filters"]> & {
-    page?: number;
-  }) {
+  function buildFilterParams(
+    next: Partial<LeadListProps["filters"]>,
+  ): URLSearchParams {
     const merged = {
       status: filters.status,
       service: filters.service,
@@ -185,24 +195,45 @@ export function LeadList({
     if (merged.from) params.set("from", merged.from);
     if (merged.to) params.set("to", merged.to);
     if (merged.q) params.set("q", merged.q);
-    const targetPage = next.page ?? 1;
-    if (targetPage > 1) params.set("page", String(targetPage));
-    const qs = params.toString();
+    return params;
+  }
+
+  function applyFilter(next: Partial<LeadListProps["filters"]>) {
+    // Filter changes always reset cursor to page 1. router.replace so the
+    // history doesn't fill with intermediate filter states.
+    const qs = buildFilterParams(next).toString();
     startTransition(() => {
       router.replace(qs ? `?${qs}` : "?", { scroll: false });
     });
   }
 
+  function goToNext() {
+    if (!nextCursor) return;
+    const params = buildFilterParams({});
+    params.set("cursor", nextCursor);
+    startTransition(() => {
+      // router.push so the back button walks back to the previous page —
+      // keyset pagination doesn't admit a cheap "previous cursor" without a
+      // history stack, so we delegate that to the browser.
+      router.push(`?${params.toString()}`, { scroll: false });
+    });
+  }
+
+  function goBack() {
+    startTransition(() => {
+      router.back();
+    });
+  }
+
   function applySearch() {
     const trimmed = searchInput.trim();
-    pushFilters({ q: trimmed.length > 0 ? trimmed : null, page: 1 });
+    applyFilter({ q: trimmed.length > 0 ? trimmed : null });
   }
 
   function applyDates() {
-    pushFilters({
+    applyFilter({
       from: fromInput || null,
       to: toInput || null,
-      page: 1,
     });
   }
 
@@ -226,9 +257,8 @@ export function LeadList({
           <Select
             value={filters.status ?? ALL_STATUSES_VALUE}
             onValueChange={(v) =>
-              pushFilters({
+              applyFilter({
                 status: v === ALL_STATUSES_VALUE ? null : (v as LeadStatus),
-                page: 1,
               })
             }
           >
@@ -253,9 +283,8 @@ export function LeadList({
           <Select
             value={filters.service ?? ALL_SERVICES_VALUE}
             onValueChange={(v) =>
-              pushFilters({
+              applyFilter({
                 service: v === ALL_SERVICES_VALUE ? null : v,
-                page: 1,
               })
             }
           >
@@ -424,31 +453,30 @@ export function LeadList({
           </TableBody>
         </Table>
 
-        {/* Pagination */}
+        {/* Pagination — keyset / cursor.
+            Prev walks browser history (one history entry per Next press) so
+            keyset doesn't have to keep its own cursor stack. */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/40">
           <span className="text-xs text-slate-500">
             {total === 0
               ? "0 leads"
-              : `${fromIndex.toLocaleString()}–${toIndex.toLocaleString()} of ${total.toLocaleString()} leads`}
+              : `Showing ${showingCount.toLocaleString()} of ${total.toLocaleString()} leads`}
           </span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1 || pending}
-              onClick={() => pushFilters({ page: page - 1 })}
+              disabled={!hasCursor || pending}
+              onClick={goBack}
             >
               <ChevronLeft className="w-4 h-4" />
               Prev
             </Button>
-            <span className="text-xs text-slate-500 tabular-nums">
-              Page {page} / {totalPages}
-            </span>
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages || pending}
-              onClick={() => pushFilters({ page: page + 1 })}
+              disabled={!canGoNext || pending}
+              onClick={goToNext}
             >
               Next
               <ChevronRight className="w-4 h-4" />

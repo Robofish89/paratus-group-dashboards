@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-04
-current_phase: 04-country-admin-dashboard
-current_plan: 04
+current_phase: 05-hq-overview
+current_plan: 01
 plan_status: shipped
-next_plan: 05-hq-overview
+next_plan: 05-02
 ---
 
 # Project State
@@ -18,7 +18,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
-| 05-hq-overview | pending | – |
+| 05-hq-overview | in progress (plan 05-01 shipped 2026-05-04) | 2026-05-04 |
 | 06-production-hardening | pending | – |
 | 07-rollout | pending | – |
 
@@ -56,6 +56,14 @@ Phase rollup: `03-sales-rep-queue/PHASE-SUMMARY.md`.
 | 04-04 | Playwright golden path + visual checkpoint + migration 00012 (user_roles country-admin SELECT) + cross-dashboard congruence refactor | shipped | `04-04-SUMMARY.md` |
 
 Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
+
+## Phase 05 plan tracker
+
+| Plan | Subsystem | Status | Summary |
+|------|-----------|--------|---------|
+| 05-01 | HQ overview DB foundation — 3 views + 1 RPC + 1 broadcast trigger + 1 RLS policy + 8 vitest cases | shipped | `05-01-SUMMARY.md` |
+| 05-02 | DAL + Zod + UI shell | pending | – |
+| 05-03 | UI components + visual checkpoint | pending | – |
 
 ## Key decisions still in force
 
@@ -113,9 +121,18 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 - **Plan 04-04 — cross-dashboard congruence wins over mockup literalism.** When a shipped neighbour (Phase 3 queue-stats) and a Phase 4 mockup disagree on a visual pattern, the neighbour wins. The Phase 4 KPI strip was refactored from "small inset accent stripe at top of card" (mockup) to "ring around card matching the tile's domain colour with the number coloured to match" (queue-stats). HQ overview (Phase 5) inherits the same pattern.
 - **Plan 04-04 — pipeline funnel widths are positional, not data-driven.** `<StatusPipelineCard>` renders fixed widths `100/88/76/64/52` so it always reads as a coherent funnel even when downstream segments are zero. Counts + share-% inside each segment carry the data; width is a visual cue. Resolves a checkpoint finding where the prior data-driven width formula collapsed sparse-data segments to a 25% min that looked stacked.
 - **Plan 04-04 — three stat-tile patterns now exist** (`MetricCard` in `@repo/ui` with full-width top bar, `queue-stats` with coloured ring, `kpi-strip` now also coloured ring). Phase 6 cleanup target: consolidate to a single shared component.
+- **Plan 05-01 — `leads_by_service_group` is ALL-TIME, diverging from `leads_by_service_today` (00011, today-only per country).** Mockup math has the bars summing to "Total Leads (Group)" 8,432; today-only would break the visual contract. Documented in SQL COMMENT and migration header.
+- **Plan 05-01 — `group_today_stats` body uses two CTEs cross-joined** (`country_aggs` summing per-country `country_today_stats`, `leads_aggs` aggregating from raw `leads`). Avoids the cartesian double-count that would occur if `countries ⨯ country_today_stats ⨯ leads` were joined in a single FROM clause.
+- **Plan 05-01 — `group_speed_to_lead_series` uses UTC day boundaries (not country tz).** Group view spans 12 IANA tz; per-country boundary makes no sense in a single-axis trend. Country-scoped `speed_to_lead_series` (00011) keeps country-tz boundaries because it's scoped.
+- **Plan 05-01 — `group_speed_to_lead_series` rejects `country_admin` (`forbidden_role / 42501`).** Country admins have their own per-country RPC (00011); the HQ RPC is HQ-only by design, not a wider window of theirs.
+- **Plan 05-01 — `country_performance_today.avg_response_seconds` is ALL-TIME.** Today-only would be too volatile across small-volume countries.
+- **Plan 05-01 — `group:all` realtime topic + `hq_group_topic` policy.** One trigger replaces 12 simultaneous per-country subscriptions per HQ tab. Existing `hq_country_topic` policy (00008) stays — HQ retains the ability to subscribe to a specific `country:<code>` topic when drilling into a country page.
+- **Plan 05-01 — RLS NOT tightened on the new HQ views.** Country admins can technically `SELECT * FROM group_today_stats` and get country-scoped sums (RLS hides their other-country leads). Route layer (`apps/web/app/(hq)/layout.tsx requireRole(['hq_admin'])`) is the access boundary, kept symmetrical with how `country_today_stats` works for HQ admin reads.
 
 ## Recent commits (most recent first)
 
+- `e025971` — test(05-01): HQ overview integration tests — RPC guards + RLS shape + realtime
+- `d526f0c` — feat(05-01): migration 00013 — HQ overview views + RPC + group:all topic
 - `754266e` — test(04-04): flip reassign assertion after migration 00012 lands
 - `be41ce8` — fix(04-04): KPI strip + pipeline funnel polish — congruence with sales-rep queue
 - `df72cad` — feat(04-04): migration 00012 — country admins can read user_roles in their country
@@ -160,27 +177,32 @@ Phase rollup: `04-country-admin-dashboard/PHASE-SUMMARY.md`.
 - CSV importer URL: https://paratus-group-dashboards.vercel.app/api/leads/import-csv
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00012 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01)
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00013 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01)
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
 ## Working tree status at last update
 
-Clean except for pre-existing modifications to `.planning/handoff-2026-04-27-jwt-bug.md`, `.planning/handoff-2026-04-27-vercel-deploy.md`, `.planning/handoff-2026-04-28.md`, and `.planning/phases/01-foundation/01-03-SUMMARY.md` (uncommitted at session start, not part of plan 02-* / 03-* work), plus the untracked `.claude/` directory (local Claude Code config).
+Clean. Untracked `.claude/` directory (local Claude Code config) and `excalidraw.log` only.
 
 ## Next move
 
-**Phase 4 closed.** Country admin surface lives end-to-end at `/[country]` (overview) and `/[country]/leads` (list) with reassign + CSV export. Migration 00012 added the `user_roles` country-admin SELECT policy that unblocked the reassign dropdown + lead-list assigned-name cell during the visual checkpoint. KPI strip + pipeline funnel polish landed at the same time, harmonising the visual language with Phase 3's queue-stats (coloured ring around card, positional funnel widths). 5/5 Playwright + 31/31 vitest green.
+**Plan 05-01 shipped.** Migration 00013 applied to `tgswsdfaszvztbpczfve`: 3 security_invoker views (`group_today_stats`, `country_performance_today`, `leads_by_service_group`), 1 hq_admin-only RPC (`group_speed_to_lead_series`), 1 broadcast trigger (`leads_broadcast_group` → `group:all`), 1 RLS policy (`hq_group_topic`). Database types regenerated. 8/8 vitest cases green, 3 flake-free runs. Type-check + lint clean.
 
-`phase-4-complete` tag staged locally; push pending explicit user approval (same posture as `phase-2-complete` and `phase-3-complete`).
+Phase 4 remains shipped (`phase-4-complete` tag staged locally; push pending explicit user approval, same posture as `phase-2-complete` and `phase-3-complete`).
+
+**Plan 05-02 — DAL + Zod + UI shell** is next. Surface to build per 05-01 SUMMARY's "Next Phase Readiness":
+- `packages/supabase/src/dal/group.ts` — 4 query functions + Zod schemas + `computeResponseStatus(seconds)` helper
+- `packages/supabase/src/realtime/use-group-broadcast.ts` — thin wrapper over `usePrivateBroadcast` with `topic: 'group:all', event: '*'`
+- Promote `parseRangeParams` to `apps/web/app/_lib/date-range.ts` (Phase 5 is the third caller per 04-RESEARCH.md line 233)
+- Wire `apps/web/app/(hq)/page.tsx` to render the KPI strip + leaderboard + leads-by-service + speed-to-lead trend, mirroring the country-admin shell.
 
 Carry-overs explicitly tracked into Phase 6:
 - Next.js 16 `middleware` → `proxy` rename (deprecation warning at every build).
-- Hermetic vitest setup (route-driven tests still need `npm run dev` running on port 3012).
+- Hermetic vitest setup (route-driven tests still need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
 - `createServiceRoleClient` and `createAdminClient` convergence.
 - Phase 1 `user_roles` policies wrapping for InitPlan caching symmetry — relevant now that 00012 has joined the file.
 - Offset → cursor pagination on the lead list view (use `(created_at, id)` cursor pair to break ties).
-- **New from 04-04**: stat-tile component consolidation (3 patterns now exist: `MetricCard` full-width top bar, `queue-stats` ring, `kpi-strip` ring). Consolidate to one shared component.
-- **New from 04-04**: range-picker UI on country-admin overview (overview honours `?range=` URL contract today; URL-only acceptable for v1, picker is a small polish lift).
-
-**Phase 5 — HQ Overview** is next: group-wide KPIs across the active 12 countries, country leaderboard, drill-into-worst-country flow. Inherits Phase 4's two-source stats split, ring-around-card KPI tile pattern, and `usePrivateBroadcast` topic naming. HQ JWT custom claim has no `country_code` pin; views/RPCs that read `(SELECT auth.jwt() ->> 'country_code')` will return NULL for HQ — the existing `hq_admin` role-check branches in 00011 RPCs handle this. Research → plan → execute, starting with `gsd:research-phase 5`.
+- **From 04-04**: stat-tile component consolidation (3 patterns now exist: `MetricCard` full-width top bar, `queue-stats` ring, `kpi-strip` ring). Consolidate to one shared component.
+- **From 04-04**: range-picker UI on country-admin overview (overview honours `?range=` URL contract today; URL-only acceptable for v1, picker is a small polish lift).
+- **From 05-01**: explicit `REVOKE ALL ... FROM anon, authenticated` on the three `broadcast_lead_to_*` trigger functions; wrap `auth.jwt()` in `(SELECT ...)` for `hq_group_topic` and the other realtime.messages policies (InitPlan caching sweep).

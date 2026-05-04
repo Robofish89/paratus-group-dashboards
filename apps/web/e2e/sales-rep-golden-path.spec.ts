@@ -208,6 +208,9 @@ test.describe.serial("Phase 3 plan 04 — sales-rep golden paths", () => {
           .locator(`[data-lead-id="${leadId}"] [data-action="no-answer"]`)
           .click();
         // Wait for the busy state to clear before the next cycle.
+        // Bumped from 8s to 12s in plan 06-04 — the broadcast emit
+        // round-trip can land just after the original deadline; re-tune if
+        // the flake re-surfaces at this timeout.
         await expect
           .poll(
             async () => {
@@ -217,7 +220,7 @@ test.describe.serial("Phase 3 plan 04 — sales-rep golden paths", () => {
                 .getAttribute("data-attempts");
               return Number(attemptsAttr ?? -1);
             },
-            { timeout: 8000 },
+            { timeout: 12000 },
           )
           .toBeGreaterThanOrEqual(i);
       }

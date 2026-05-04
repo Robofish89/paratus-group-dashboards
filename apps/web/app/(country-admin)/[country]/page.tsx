@@ -21,6 +21,7 @@ import { LeadsByServiceCard } from "./_components/leads-by-service-card";
 import { StatusPipelineCard } from "./_components/status-pipeline-card";
 import { AgentPerformanceTable } from "./_components/agent-performance-table";
 import { SpeedToLeadCard } from "./_components/speed-to-lead-card";
+import { RangePicker } from "./_components/range-picker";
 
 /**
  * Plan-04-02 surface — country admin overview. Reads `[country]` from the
@@ -98,6 +99,15 @@ export default async function CountryAdminOverviewPage({
       user={dashboardUserFor(user, claims)}
     >
       <div className="flex flex-col gap-6">
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          data-testid="country-admin-overview-header"
+        >
+          <p className="text-sm text-slate-500 capitalize">
+            Showing data for <span className="font-medium text-slate-700">{range.label}</span>
+          </p>
+          <RangePicker rangeKey={range.key} rangeLabel={range.label} />
+        </div>
         <KpiStrip
           countryCode={countryCode}
           today={todayStats}

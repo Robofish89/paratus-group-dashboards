@@ -131,9 +131,11 @@ export async function getLeadsByServiceToday(
 }
 
 /**
- * Today's status pipeline — one row per `lead_status` enum value (5 rows
- * including `qualified`, kept for analytics back-compat per plan 04-01).
- * Drives the funnel.
+ * Today's status pipeline. Returns one row per status that has *at least one*
+ * lead today (the view's GROUP BY drops zero-count buckets). Callers MUST
+ * default missing statuses to 0 — see `<StatusPipelineCard>` which renders
+ * five fixed segments (incl. `qualified` for analytics back-compat). Drives
+ * the funnel.
  */
 export async function getStatusPipelineToday(
   country_code: string,

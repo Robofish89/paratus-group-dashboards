@@ -326,6 +326,7 @@ export function LeadList({
           </Button>
           <a
             href={exportHref}
+            data-testid="export-csv-link"
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
               "bg-[#2B479B] text-white hover:bg-[#243d85] transition-colors",
@@ -376,6 +377,7 @@ export function LeadList({
               rows.map((row) => (
                 <TableRow
                   key={row.id}
+                  data-testid={`lead-list-row-${row.id}`}
                   className="border-b border-slate-50 hover:bg-slate-50/50"
                 >
                   <TableCell className="py-3.5 px-4">
@@ -394,7 +396,10 @@ export function LeadList({
                   <TableCell className="py-3.5 px-4">
                     <LeadStatusPill status={row.status} />
                   </TableCell>
-                  <TableCell className="py-3.5 px-4 text-sm text-slate-600">
+                  <TableCell
+                    className="py-3.5 px-4 text-sm text-slate-600"
+                    data-testid={`lead-list-row-${row.id}-assigned-to`}
+                  >
                     {row.assigned_to_name ?? (
                       <span className="text-slate-400 italic">Unassigned</span>
                     )}

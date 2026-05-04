@@ -78,6 +78,7 @@ export function AgentPerformanceTable({
   return (
     <div
       className={cn("bg-white rounded-xl p-6 border border-slate-100")}
+      data-testid="agent-performance-table"
     >
       <h2 className="text-base font-semibold text-slate-900 mb-4">
         Sales Rep Performance
@@ -113,6 +114,7 @@ export function AgentPerformanceTable({
                 <TableRow
                   key={row.agent_id}
                   className="hover:bg-slate-50/50 transition-colors"
+                  data-testid={`agent-performance-row-${row.agent_id}`}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2.5">

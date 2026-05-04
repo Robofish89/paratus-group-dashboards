@@ -101,7 +101,7 @@ export function ReassignDialog({
         if (!o && !submitting) onClose();
       }}
     >
-      <DialogContent>
+      <DialogContent data-testid="reassign-dialog">
         <DialogHeader>
           <DialogTitle>Reassign {lead.name}</DialogTitle>
           <DialogDescription>
@@ -154,6 +154,7 @@ export function ReassignDialog({
             onClick={handleSave}
             disabled={!selectedAgent || submitting}
             className="bg-[#2B479B] hover:bg-[#243d85] text-white"
+            data-testid="reassign-dialog-save"
           >
             {submitting ? "Reassigning…" : "Save"}
           </Button>

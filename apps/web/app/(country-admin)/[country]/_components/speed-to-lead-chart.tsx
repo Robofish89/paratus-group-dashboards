@@ -31,14 +31,18 @@ interface SpeedToLeadChartProps {
 export function SpeedToLeadChart({ data }: SpeedToLeadChartProps) {
   if (data.length === 0) {
     return (
-      <div className="h-12 flex items-center text-xs text-slate-400">
+      <div
+        className="h-12 flex items-center text-xs text-slate-400"
+        data-testid="speed-to-lead-sparkline"
+        data-empty="true"
+      >
         No data
       </div>
     );
   }
 
   return (
-    <div className="h-12">
+    <div className="h-12" data-testid="speed-to-lead-sparkline">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}

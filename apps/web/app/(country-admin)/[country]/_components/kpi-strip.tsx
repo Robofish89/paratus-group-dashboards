@@ -158,6 +158,7 @@ export function KpiStrip({
       {tiles.map((tile) => (
         <div
           key={tile.key}
+          data-testid={`kpi-strip-tile-${tile.key}`}
           className={cn(
             "bg-white rounded-xl p-5 border border-slate-100 relative overflow-hidden",
             "transition-shadow duration-200 hover:shadow-md",

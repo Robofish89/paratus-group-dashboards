@@ -46,7 +46,10 @@ export function LeadsByServiceCard({ items }: LeadsByServiceCardProps) {
     }));
 
   return (
-    <div className={cn("bg-white rounded-xl p-6 border border-slate-100")}>
+    <div
+      className={cn("bg-white rounded-xl p-6 border border-slate-100")}
+      data-testid="leads-by-service-card"
+    >
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-base font-semibold text-slate-900">
           Leads by Service

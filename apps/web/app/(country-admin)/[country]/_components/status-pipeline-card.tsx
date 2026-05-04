@@ -75,6 +75,7 @@ export function StatusPipelineCard({ items }: StatusPipelineCardProps) {
   return (
     <div
       className={cn("bg-white rounded-xl p-6 border border-slate-100")}
+      data-testid="status-pipeline-card"
     >
       <h2 className="text-base font-semibold text-slate-900 mb-4">
         Lead Status Pipeline
@@ -107,6 +108,7 @@ export function StatusPipelineCard({ items }: StatusPipelineCardProps) {
           return (
             <div
               key={seg.status}
+              data-testid={`status-pipeline-segment-${seg.status}`}
               className={cn(idx === 0 ? "" : "flex justify-center")}
             >
               <div

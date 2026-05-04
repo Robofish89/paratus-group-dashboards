@@ -51,6 +51,7 @@ export function SpeedToLeadCard({ today, series }: SpeedToLeadCardProps) {
   return (
     <div
       className={cn("bg-white rounded-xl p-6 border border-slate-100")}
+      data-testid="speed-to-lead-card"
     >
       <h2 className="text-base font-semibold text-slate-900 mb-4">
         Speed to Lead
@@ -58,7 +59,12 @@ export function SpeedToLeadCard({ today, series }: SpeedToLeadCardProps) {
       <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
         {/* Gauge ring */}
         <div className="relative shrink-0">
-          <svg width="160" height="160" viewBox="0 0 160 160">
+          <svg
+            width="160"
+            height="160"
+            viewBox="0 0 160 160"
+            data-testid="speed-to-lead-gauge"
+          >
             {/* Background ring */}
             <circle
               cx="80"

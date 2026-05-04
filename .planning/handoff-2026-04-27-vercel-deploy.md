@@ -77,7 +77,7 @@ Local commits are NOT pushed yet — pushing to `main` triggers the prod deploy 
    - User does this manually in Supabase Dashboard → Authentication → URL Configuration:
      - Add the Vercel production URL to Site URL + Redirect URLs.
      - Optionally add `https://*.vercel.app/**` for previews, OR a specific preview alias.
-   - OR script via the supabase-paratus MCP if there's an admin endpoint for it (verify before assuming).
+   - OR script via the supabase-paratusgroup MCP if there's an admin endpoint for it (verify before assuming).
 
 9. **Enable Vercel Preview Deployment Protection.** User does this in Vercel Dashboard → Settings → Deployment Protection → Vercel Authentication or Password Protection (Preview only, Production stays public).
 

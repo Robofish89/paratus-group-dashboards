@@ -1,6 +1,6 @@
 # Handoff: JWT Hook Bug — 2026-04-27
 
-> Read this **first** in the new session. Then immediately run the diagnostic in §3 via the `supabase-paratus` MCP. Do not ask the user to do anything until you've finished the diagnostic.
+> Read this **first** in the new session. Then immediately run the diagnostic in §3 via the `supabase-paratusgroup` MCP. Do not ask the user to do anything until you've finished the diagnostic.
 
 ## Context (read before doing anything)
 
@@ -36,7 +36,7 @@ User logs in as `para.group.n8n+hq@gmail.com` and lands on `/unauthorized` inste
 
 ## §3 — Diagnostic (run FIRST in new session)
 
-Use the `supabase-paratus` MCP. The user does NOT need to do anything yet.
+Use the `supabase-paratusgroup` MCP. The user does NOT need to do anything yet.
 
 ### 3.1 Test the hook output directly
 
@@ -83,7 +83,7 @@ end;
 $$;
 ```
 
-(Read the actual current function body via `mcp__supabase-paratus__execute_sql` and compare.)
+(Read the actual current function body via `mcp__supabase-paratusgroup__execute_sql` and compare.)
 
 ### 3.2 Read the function definition
 
@@ -114,7 +114,7 @@ order by timestamp desc
 limit 50;
 ```
 
-(May need a different table name — `mcp__supabase-paratus__get_logs` may be cleaner; pass `service: "auth"`.)
+(May need a different table name — `mcp__supabase-paratusgroup__get_logs` may be cleaner; pass `service: "auth"`.)
 
 ### 3.5 Inspect the auth.users row for the hq user
 
@@ -186,10 +186,10 @@ Expect 3 rows, no NULL roles.
 
 When the user opens the new session and types something like "ready" or "go", you (the new agent) should:
 1. Read this file
-2. Verify the `supabase-paratus` MCP is loaded by listing tables or running a trivial `select 1`
+2. Verify the `supabase-paratusgroup` MCP is loaded by listing tables or running a trivial `select 1`
 3. Run §3 diagnostics autonomously
 4. Either propose a one-line fix migration OR explain the actual root cause
-5. Apply the fix via `mcp__supabase-paratus__apply_migration`
+5. Apply the fix via `mcp__supabase-paratusgroup__apply_migration`
 6. Have the user log out + log back in
 7. Walk verification matrix
 8. Close out plan 01-02

@@ -69,3 +69,20 @@ export type {
   GroupSpeedToLeadDay,
   ResponseStatus,
 } from './group';
+
+export {
+  recordAudit,
+  getAuditLog,
+  computeDiff,
+  hashIpAddress,
+  AUDIT_LOG_PAGE_SIZE,
+} from './audit';
+export type {
+  AuditAction,
+  AuditTarget,
+  AuditRow,
+  AuditDiff,
+  RecordAuditInput,
+  GetAuditLogInput,
+  GetAuditLogResult,
+} from './audit';

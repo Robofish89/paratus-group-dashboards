@@ -1,10 +1,11 @@
 // AUTO-GENERATED from Supabase Postgres schema. Do not edit by hand.
-// Regenerate via:
+// Regenerate via the supabase-paratusgroup MCP `generate_typescript_types`,
+// or:
 //   curl -sS "https://api.supabase.com/v1/projects/$PROJECT_REF/types/typescript" \
 //     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 //     | jq -r '.types' > packages/supabase/src/types/database.ts
 //
-// Last generated: 2026-05-04 (plan 05-01, project tgswsdfaszvztbpczfve)
+// Last generated: 2026-05-04 (plan 06-02, project tgswsdfaszvztbpczfve)
 // Migration files reflected in this regen:
 //   00001_rbac_schema.sql
 //   00002_allow_auth_admin_read_user_roles.sql
@@ -15,23 +16,13 @@
 //   00007_assignment_function.sql
 //   00008_realtime_broadcast.sql
 //   00009_queue_rpcs.sql        (plan 03-01)
-//   00010_queue_ux_redesign.sql (plan 03-04 — call_attempts/last_outcome,
-//                                view rewrite, record_no_answer +
-//                                agent_stats_in_range RPCs)
-//   00011_country_admin.sql     (plan 04-01 — country_today_stats,
-//                                leads_by_service_today, status_pipeline_today,
-//                                country_speed_to_lead_today views;
-//                                country_stats_in_range,
-//                                agent_performance_in_range,
-//                                speed_to_lead_series, reassign_lead RPCs)
-//   00012_user_roles_country_admin_read.sql (plan 04-04 — country admins
-//                                            SELECT user_roles in their country)
-//   00013_hq_overview.sql       (plan 05-01 — group_today_stats,
-//                                country_performance_today,
-//                                leads_by_service_group views;
-//                                group_speed_to_lead_series RPC;
-//                                broadcast_lead_to_group trigger +
-//                                hq_group_topic realtime.messages policy)
+//   00010_queue_ux_redesign.sql (plan 03-04)
+//   00011_country_admin.sql     (plan 04-01)
+//   00012_user_roles_country_admin_read.sql (plan 04-04)
+//   00013_hq_overview.sql       (plan 05-01)
+//   00014_sla_alerts.sql        (plan 06-01 — sla_breach_alerted_at column,
+//                                v_sla_breaches view, mark_sla_alerted RPC)
+//   00015_audit_log.sql         (plan 06-02 — audit_log table + record_audit RPC)
 
 export type Json =
   | string
@@ -49,6 +40,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string
+          country_code: string
+          created_at: string
+          diff: Json
+          id: string
+          ip_hash: string | null
+          target_id: string
+          target_type: string
+          visible_to_country_codes: string[]
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role: string
+          country_code: string
+          created_at?: string
+          diff: Json
+          id?: string
+          ip_hash?: string | null
+          target_id: string
+          target_type: string
+          visible_to_country_codes: string[]
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string
+          country_code?: string
+          created_at?: string
+          diff?: Json
+          id?: string
+          ip_hash?: string | null
+          target_id?: string
+          target_type?: string
+          visible_to_country_codes?: string[]
+        }
+        Relationships: []
+      }
       callbacks: {
         Row: {
           assigned_to: string
@@ -139,6 +172,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "callbacks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sla_breaches"
             referencedColumns: ["id"]
           },
         ]
@@ -292,6 +332,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sla_breaches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       leads: {
@@ -313,6 +360,7 @@ export type Database = {
           phone: string | null
           qualified_at: string | null
           raw_payload: Json | null
+          sla_breach_alerted_at: string | null
           source_url: string | null
           status: Database["public"]["Enums"]["lead_status"]
           submitted_at: string
@@ -339,6 +387,7 @@ export type Database = {
           phone?: string | null
           qualified_at?: string | null
           raw_payload?: Json | null
+          sla_breach_alerted_at?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           submitted_at: string
@@ -365,6 +414,7 @@ export type Database = {
           phone?: string | null
           qualified_at?: string | null
           raw_payload?: Json | null
+          sla_breach_alerted_at?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           submitted_at?: string
@@ -816,6 +866,96 @@ export type Database = {
           },
         ]
       }
+      v_sla_breaches: {
+        Row: {
+          age_seconds: number | null
+          assigned_to: string | null
+          country_code: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          phone: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          age_seconds?: never
+          assigned_to?: string | null
+          country_code?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          age_seconds?: never
+          assigned_to?: string | null
+          country_code?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "agent_performance"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "agent_today_stats"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_leaderboard"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_performance_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_speed_to_lead_today"
+            referencedColumns: ["country_code"]
+          },
+          {
+            foreignKeyName: "leads_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_today_stats"
+            referencedColumns: ["country_code"]
+          },
+        ]
+      }
     }
     Functions: {
       agent_performance_in_range: {
@@ -867,9 +1007,22 @@ export type Database = {
       }
       ingest_lead: { Args: { payload: Json }; Returns: Json }
       mark_lead_contacted: { Args: { p_lead_id: string }; Returns: Json }
+      mark_sla_alerted: { Args: { p_lead_id: string }; Returns: undefined }
       reassign_lead: {
         Args: { p_lead_id: string; p_to_agent_id: string }
         Returns: undefined
+      }
+      record_audit: {
+        Args: {
+          p_action: string
+          p_country_code: string
+          p_diff: Json
+          p_ip_hash?: string
+          p_target_id: string
+          p_target_type: string
+          p_visible_to_country_codes?: string[]
+        }
+        Returns: string
       }
       record_no_answer: { Args: { p_lead_id: string }; Returns: Json }
       schedule_callback: {
@@ -1059,7 +1212,10 @@ export const Constants = {
         "MW",
         "ZW",
       ],
-      country_status: ["active", "coming_soon"],
+      country_status: [
+        "active",
+        "coming_soon",
+      ],
       event_type: [
         "created",
         "assigned",

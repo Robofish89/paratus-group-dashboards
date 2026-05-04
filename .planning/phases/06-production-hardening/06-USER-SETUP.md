@@ -83,4 +83,153 @@ production (or a preview deploy with Upstash env wired).
 
 ---
 
+## 2. Audit log IP hashing salt (plan 06-02)
+
+The audit log (migration 00015 + DAL `packages/supabase/src/dal/audit.ts`)
+hashes the request IP before storing it on every audit row, so we keep a
+correlation key without storing raw PII. The hash uses
+`sha256(ip || IP_HASH_SALT)`. Rotating the salt deliberately breaks
+correlation across rotations — exactly the privacy posture we want.
+
+### Environment Variable
+
+| Status | Variable | Source | Add to |
+|--------|----------|--------|--------|
+| [ ] | `IP_HASH_SALT` | Generate locally: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` | Vercel Production + Preview (Sensitive) + local `apps/web/.env.local` |
+
+The audit DAL's `hashIpAddress(...)` falls through to `sha256(ip + '')`
+when the env is absent, so dev still works without a salt — the resulting
+hash is stable across machines, which is fine for local testing. Production
+MUST have a real salt set so the audit-row IP correlations are not
+trivially reversible from a published rainbow table.
+
+### Setup
+
+```bash
+# 1. Generate locally
+SALT=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+
+# 2. Push to Vercel (Production + Preview, Sensitive)
+echo "$SALT" | vercel env add IP_HASH_SALT production --sensitive
+echo "$SALT" | vercel env add IP_HASH_SALT preview --sensitive
+
+# 3. Add to local .env.local
+echo "IP_HASH_SALT=$SALT" >> apps/web/.env.local
+```
+
+### Verification
+
+After deploy, write any audit row (reassign a lead) and verify the
+`ip_hash` column is a 64-char hex string:
+
+```sql
+SELECT id, action, length(ip_hash) AS hash_len
+FROM audit_log
+ORDER BY created_at DESC
+LIMIT 1;
+-- Expect hash_len = 64.
+```
+
+### Rotation
+
+Rotating `IP_HASH_SALT` is a no-op for the database — old rows keep their
+old hashes, new rows hash with the new salt, and they stop matching. This
+is the desired property: rotate after a privacy incident (or quarterly,
+per the security runbook) to break long-term correlation.
+
+---
+
+## 3. Resend (transactional email — SLA breach alerts)
+
+Used by `apps/web/app/api/cron/sla-check/route.ts`. The route emails country
+admins when a lead has been unanswered for more than 5 minutes.
+
+The Resend wrapper (`packages/supabase/src/lib/email.ts`) reads env lazily on
+the first send — module import is safe even with no key — but the **first
+real cron tick** in any environment without `RESEND_API_KEY` /
+`SLA_ALERT_FROM_EMAIL` set will throw and the lead will not be marked alerted
+(retry loop kicks in, log volume grows, no recipient receives mail).
+
+The cron route also requires `CRON_SECRET` — Vercel's scheduler forwards it
+as `Authorization: Bearer ${CRON_SECRET}` and the route refuses every other
+request with 401.
+
+### Environment Variables
+
+| Status | Variable | Source | Add to |
+|--------|----------|--------|--------|
+| [ ] | `RESEND_API_KEY` | Resend Dashboard → API Keys → Create API Key (Full Access) | Vercel Production + Preview (Sensitive); `apps/web/.env.local` for local smoke |
+| [ ] | `SLA_ALERT_FROM_EMAIL` | Verified Resend sender (e.g. `alerts@paratus.group`). Use `onboarding@resend.dev` only for the very first local smoke. | Vercel Production + Preview; `.env.local` for local smoke |
+| [ ] | `CRON_SECRET` | `openssl rand -hex 32` | Vercel Production + Preview (Sensitive); `.env.local` for local smoke |
+
+### Account Setup
+
+- [ ] Sign in to Resend with `para.group.n8n@gmail.com`
+  - URL: <https://resend.com/signup>
+  - Skip if a Resend workspace already exists under that account.
+
+### Dashboard Configuration
+
+- [ ] **Verify the sending domain** (mandatory before production traffic):
+  - Resend Dashboard → Domains → Add Domain
+  - Use either `paratus.group` (root) or a sub-domain like `alerts.paratus.group`.
+  - Resend prints DKIM, SPF, and DMARC records. Paste them into the registrar
+    (e.g. Cloudflare DNS) and wait for `verified` status — usually < 10 min.
+  - Until the domain is verified, every send will fail with
+    `domain_not_verified` and the cron will log `error_count` per breach.
+
+- [ ] **Create the API key**:
+  - Resend Dashboard → API Keys → Create API Key (Full Access).
+  - Copy once; the dashboard will not show it again.
+
+- [ ] **Push env vars to Vercel** (Production + Preview only — never set
+  `CRON_SECRET` on a development environment that doesn't need to receive
+  real cron invocations):
+  ```bash
+  vercel env add RESEND_API_KEY production preview --sensitive
+  vercel env add SLA_ALERT_FROM_EMAIL production preview
+  vercel env add CRON_SECRET production preview --sensitive
+  ```
+
+### Local Development
+
+```bash
+# 1. Pull the existing Vercel envs into local .env.local
+vercel env pull apps/web/.env.local
+
+# 2. (Optional) for local smoke before pushing to Vercel:
+echo "RESEND_API_KEY=re_dev_..." >> apps/web/.env.local
+echo "SLA_ALERT_FROM_EMAIL=onboarding@resend.dev" >> apps/web/.env.local
+echo "CRON_SECRET=$(openssl rand -hex 32)" >> apps/web/.env.local
+
+# 3. Start the dev server, then in another terminal:
+curl -H "Authorization: Bearer $CRON_SECRET" \
+     http://localhost:3012/api/cron/sla-check
+```
+
+### Verification
+
+After deploy, watch the Vercel function logs filter on `event=sla_cron`. A
+quiet steady state shows `{"event":"sla_cron","checked":0,"alerted":0,"error_count":0}`
+once per minute. A real breach shows `checked >= 1, alerted >= 1`. Then
+verify the dedupe column landed:
+
+```sql
+SELECT id, country_code, sla_breach_alerted_at
+FROM leads
+WHERE sla_breach_alerted_at IS NOT NULL
+ORDER BY sla_breach_alerted_at DESC
+LIMIT 5;
+```
+
+### Rotation
+
+- `RESEND_API_KEY`: rotate quarterly via the Resend dashboard. Update
+  Vercel env, redeploy. The lazy-init client picks the new key up on first
+  send post-restart.
+- `CRON_SECRET`: rotate any time. The Vercel-managed cron picks up the new
+  value on the next deploy automatically; no scheduler reconfiguration needed.
+
+---
+
 **Once all items complete:** Mark status as "Complete" at the top.

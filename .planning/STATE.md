@@ -1,7 +1,7 @@
 ---
 last_updated: 2026-05-04
 current_phase: 06-production-hardening
-current_plan: 03
+current_plan: 02
 plan_status: shipped
 next_plan: 06-05
 ---
@@ -71,8 +71,8 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
-| 06-01 | Resend SLA breach cron | in progress (parallel) | – |
-| 06-02 | audit log + reassign instrumentation | in progress (parallel) | – |
+| 06-01 | Resend SLA breach cron | shipped | `06-01-SUMMARY.md` |
+| 06-02 | audit log (00015) + write-route hooks + viewer page + 5 vitest cases | shipped | `06-02-SUMMARY.md` |
 | 06-03 | proxy rename + RLS InitPlan caching (00016) + broadcast lockdown (00017) + Upstash rate-limit + createAdminClient convergence | shipped | `06-03-SUMMARY.md` |
 | 06-04 | UX/scale carry-overs — cursor pagination + MetricCard consolidation + range picker + e2e flake fix + env doc | shipped | `06-04-SUMMARY.md` |
 | 06-05 | TBD (carry-overs not closed by 06-01..06-04) | pending | – |
@@ -164,9 +164,17 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - **Plan 06-03 — `/api/auth/logout` excluded from auth-path rate limit.** Logout is intent-revealing but harmless; capping it traps a user mid-session if they're behind a flooded IP.
 - **Plan 06-03 — `createServiceRoleClient` deleted from `packages/supabase/src/server.ts`; `createAdminClient` is the single name.** All call sites converged: `dal/events.ts`, `dal/leads.ts`, `apps/web/app/api/e2e-login/route.ts`. `git grep -n createServiceRoleClient` returns only a single deprecation comment in `server.ts`.
 - **Plan 06-03 — six security headers verified in `next.config.ts`:** Content-Security-Policy, Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Zero diff (Permissions-Policy was already added in a prior phase).
+- **Plan 06-01 — SLA breach detection via per-minute Vercel cron + Resend email.** Migration 00014 adds `leads.sla_breach_alerted_at` (dedupe column), partial index `leads_sla_pending_idx`, `v_sla_breaches` view (`security_invoker = true`, service-role only), and `mark_sla_alerted(uuid)` RPC. Cron route at `/api/cron/sla-check` (bearer-auth, `runtime='nodejs'`, `maxDuration=60`) reads breaches → emails country admins via Resend in parallel (`Promise.allSettled`) → marks dedupe column only on full success. Resend SDK + `@react-email/components` added to `packages/supabase` deps; React Email template at `lib/emails/sla-breach.tsx` uses paratus-blue/accent-orange palette + inline styles for Gmail/Outlook compat. `X-Entity-Ref-ID` header per breach prevents Gmail thread-collapse.
+- **Plan 06-01 — `v_sla_breaches` filters `status = 'new'`, not `'new'|'assigned'`.** The `lead_status` enum (00005) has no `'assigned'` value — assignment flips `assigned_to` from NULL without changing `status`. Breach criterion is exactly `status = 'new' AND first_contacted_at IS NULL AND submitted_at < now() - 5min AND sla_breach_alerted_at IS NULL`. SQL header documents the deviation from the plan template.
+- **Plan 06-01 — Resend client + env validation are lazy.** `email.ts` defers `RESEND_API_KEY`/`SLA_ALERT_FROM_EMAIL` reads until first `sendSlaBreachEmail(...)` call. Module-init crash would block any other route that transitively imports the cron's deps; lazy init still fails fast on first send (cron triggers within 60s of deploy in any env that's expected to email). Tests stub Resend at the module boundary via `vi.mock('resend')` and reset the cached client between cases via `__resetResendClientForTests`.
+- **Plan 06-01 — `apps/web/vitest.config.ts` aliases `server-only` to a no-op shim.** Required so the test runner (plain Node, no RSC graph) can import the cron route module. Production Webpack/Turbopack still enforces the boundary at compile time. Shim lives at `apps/web/test-support/server-only-shim.ts`.
+- **Plan 06-01 — cron dedupe via `sla_breach_alerted_at` column, not external store (Redis/SQS/DynamoDB).** The column is part of the source-of-truth `leads` row, so a single transaction (cron call → mark RPC) is enough to close the dedupe window. Partial Resend failure leaves the column NULL → next minute retries the entire batch. No additional infrastructure required.
+- **Plan 06-01 — cron return shape `{ checked, alerted, errors[] }` carries no PII.** Errors are `{ leadId, recipient, message }`; the email body never appears in logs or responses. Per-invocation `process.stdout.write` of `{ event: 'sla_cron', checked, alerted, error_count }` for the Vercel runtime drain.
 
 ## Recent commits (most recent first)
 
+- `046b6a9` — feat(06-01): SLA breach cron route + vercel cron schedule + integration test
+- `2ee1979` — feat(06-01): migration 00014 — SLA breach detection schema + Resend wrapper + email template
 - `9cf90c8` — feat(06-03): Upstash rate-limit on auth + ingest paths; converge to createAdminClient
 - `92b8b55` — feat(06-03): migrations 00016 + 00017 — RLS InitPlan caching + broadcast lockdown
 - `ab09c78` — chore(06-03): rename middleware.ts to proxy.ts (Next.js 16)
@@ -227,13 +235,14 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - CSV importer URL: https://paratus-group-dashboards.vercel.app/api/leads/import-csv
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Plan 06-03 added 00016 (Phase 1 RLS InitPlan caching) + 00017 (broadcast trigger function REVOKE).
+- SLA cron: `/api/cron/sla-check` (bearer-auth — `Authorization: Bearer ${CRON_SECRET}`; Vercel scheduler `* * * * *`)
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Plan 06-01 added 00014 (SLA breach view + dedupe RPC); plan 06-03 added 00016 (Phase 1 RLS InitPlan caching) + 00017 (broadcast trigger function REVOKE).
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
 ## Working tree status at last update
 
-Plans 06-03 + 06-04 + 06-02 lanes shipped. Sibling 06-01 (Resend SLA cron) lane has unstaged work in the tree — lands via its own plan close-out.
+Plans 06-01 + 06-03 + 06-04 lanes shipped on `main`. Sibling 06-02 lane (audit-log integrations into queue/reassign routes) still has unstaged work in the tree — lands via that plan's close-out.
 
 ## Next move
 

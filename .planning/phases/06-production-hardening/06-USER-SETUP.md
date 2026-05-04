@@ -232,4 +232,173 @@ LIMIT 5;
 
 ---
 
+---
+
+## 4. Sentry (application error tracking — plan 06-05)
+
+Used by `apps/web/instrumentation.ts`, `apps/web/instrumentation-client.ts`,
+`apps/web/sentry.server.config.ts`, `apps/web/sentry.edge.config.ts`, and
+the `withSentryConfig(...)` wrapper in `apps/web/next.config.ts`.
+
+The DSN is read lazily at `Sentry.init` time — no DSN ⇒ Sentry becomes a
+no-op so dev sessions without a Sentry project still work. Source-map
+upload runs at BUILD time only when `SENTRY_AUTH_TOKEN` is present in
+the build env (Vercel build, NOT local dev). Without the token,
+production stack traces will show minified code (RESEARCH pitfall 8).
+
+### Environment Variables
+
+| Status | Variable | Source | Add to |
+|--------|----------|--------|--------|
+| [ ] | `NEXT_PUBLIC_SENTRY_DSN` | Sentry → Settings → Projects → paratus-group-dashboards → Client Keys (DSN) | Vercel Production + Preview; client-side capture |
+| [ ] | `SENTRY_DSN` | Same value as `NEXT_PUBLIC_SENTRY_DSN` | Vercel Production + Preview; server-side capture |
+| [ ] | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Account → API → Auth Tokens → Create with `project:releases` + `project:write` scopes | Vercel **Build** env scope (NOT runtime). Mark Sensitive. |
+| [ ] | `SENTRY_ORG` | Your Sentry org slug (e.g. `paratus-group`) | Vercel Production + Preview |
+| [ ] | `SENTRY_PROJECT` | `paratus-group-dashboards` | Vercel Production + Preview |
+
+### Account Setup
+
+- [ ] Sign in to Sentry with `para.group.n8n@gmail.com`
+  - URL: <https://sentry.io/signup/>
+  - Skip if already authenticated under that account.
+
+### Dashboard Configuration
+
+- [ ] **Create the project**:
+  - Sentry → Create Project → Next.js → name `paratus-group-dashboards`.
+  - Copy the DSN from the wizard; it goes into both
+    `NEXT_PUBLIC_SENTRY_DSN` AND `SENTRY_DSN`.
+
+- [ ] **Create the auth token**:
+  - Sentry → Settings → Account → API → Auth Tokens → Create New Token.
+  - Scopes: `project:releases` + `project:write`. Copy once.
+
+- [ ] **Push env vars to Vercel** (BUILD scope for `SENTRY_AUTH_TOKEN`,
+  Production + Preview for the rest):
+  ```bash
+  vercel env add NEXT_PUBLIC_SENTRY_DSN production preview
+  vercel env add SENTRY_DSN production preview
+  # SENTRY_AUTH_TOKEN must be added with Build env scope (not runtime).
+  # Vercel CLI doesn't support that flag; add via Vercel Dashboard:
+  #   Settings → Environment Variables → Add → Build (env) scope.
+  vercel env add SENTRY_ORG production preview
+  vercel env add SENTRY_PROJECT production preview
+  ```
+
+### Local Development
+
+```bash
+# Optional — only needed if you want errors from `npm run dev` to land in
+# Sentry. Without these env vars, Sentry is a no-op locally.
+echo "NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/..." >> apps/web/.env.local
+echo "SENTRY_DSN=https://...@sentry.io/..." >> apps/web/.env.local
+```
+
+### Verification
+
+After deploy with all five env vars set:
+
+```bash
+# 1. Hit the health endpoint — proves the wrapper didn't break the build.
+curl -sS https://paratus-group-dashboards.vercel.app/api/health | jq .
+
+# 2. Trigger a deliberate error from a non-prod test page in dev,
+#    then confirm an issue appears in the Sentry inbox with a
+#    SYMBOLISED stacktrace (file paths visible, not minified). If
+#    stacktraces are minified, SENTRY_AUTH_TOKEN was not set in the
+#    Build env at deploy time — re-trigger the deploy after fixing.
+
+# 3. Optional smoke test page:
+#    Add a temporary route /api/test-sentry that throws, deploy,
+#    GET it once, confirm Sentry issue, delete the route.
+```
+
+### Rotation
+
+- DSN rotation: regenerate via Sentry → Project Settings → Client Keys →
+  Rotate; update Vercel env, redeploy. The lazy-init client picks the new
+  DSN up on first capture post-restart.
+- Auth-token rotation: regenerate via Sentry → Settings → Account → API →
+  Auth Tokens; update Vercel Build env. Old builds keep working; the next
+  deploy uses the new token for source-map upload.
+
+---
+
+## 5. UptimeRobot (synthetic uptime monitoring — plan 06-05)
+
+Free-tier UptimeRobot pings `/api/health` every 5 minutes. The endpoint
+returns `200` when the DB round-trip is healthy AND under 500 ms; `503`
+otherwise. The 503 path triggers an alert email to the configured contacts.
+
+### Account Setup
+
+- [ ] Sign up at <https://uptimerobot.com/signUp> with `para.group.n8n@gmail.com`.
+  Skip if already authenticated.
+
+### Dashboard Configuration
+
+- [ ] **Create an HTTP(s) monitor**:
+  - URL: `https://paratus-group-dashboards.vercel.app/api/health`
+  - Interval: 5 minutes (the free-tier minimum)
+  - Alert contacts: `para.group.n8n@gmail.com` + William's email
+    (William to provide before pilot start)
+  - **Pause until plan deploys**; resume at the start of the 48 h soak so
+    the uptime % counter starts clean.
+
+### Verification
+
+After resuming the monitor:
+
+- Wait 15 minutes; the dashboard should show 3 successful probes (≥99 % uptime).
+- Manually trigger a 503 by temporarily revoking the Supabase anon key (or
+  set `SUPABASE_SERVICE_ROLE_KEY` to garbage on a Preview deploy and point
+  UptimeRobot at the preview URL); confirm an email arrives within 2 probes
+  (≤ 10 minutes). Restore the key after.
+
+---
+
+## 6. Pilot country lock + ingestion path (plan 06-05)
+
+Phase 6's done-condition is the 48 h pilot soak. The pilot country and
+the lead-ingestion path must be locked before kickoff.
+
+### Decisions Required
+
+- [ ] **Pilot country** — confirm with William (default: Mozambique;
+  alternative: Namibia). Lock before flipping the form-side ingestion to
+  point at production.
+
+- [ ] **Ingestion path** — choose one and document the choice in the
+  06-05 SUMMARY:
+  1. **Path 1 — Direct webhook**. Paratus IT wires the form `onSubmit` to
+     POST `https://paratus-group-dashboards.vercel.app/api/leads/ingest`
+     with the HMAC header. Cleanest end-to-end; depends on Paratus IT
+     bandwidth inside the soak window.
+  2. **Path 2 — n8n bridge** (RESEARCH default). Existing Sheets/email
+     flows fan out to the same webhook. Lower change cost; accepted
+     stop-gap.
+  3. **Hybrid** — n8n bridge for the soak, direct webhook per-country
+     during Phase 7 rollout.
+
+### 48 h Soak Operations
+
+- [ ] Confirm UptimeRobot is resumed at T+0.
+- [ ] Confirm Sentry inbox is open in a tab.
+- [ ] Confirm `vercel logs --since=1h --follow` is running for the
+  ingest + queue + cron paths.
+- [ ] Mid-soak (T+1 h): run the cross-country leakage spot-check
+  documented in `06-05-PLAN.md` Task 3.
+- [ ] Mid-soak (T+24 h): seed an SLA breach (or wait for organic) and
+  confirm the email arrives within 60 s of the breach.
+- [ ] Soak close (T+48 h):
+  - Pull final metrics: leads ingested, SLA breaches alerted,
+    errors thrown, uptime %.
+  - Re-walk `SECURITY_CHECKLIST.md`.
+  - Run `cd apps/web && npx playwright test` against production.
+  - Run `mcp__supabase-paratusgroup__get_advisors --type security` —
+    confirm zero new findings.
+  - Update `.planning/PROJECT.md` "Validated" with the metrics.
+
+---
+
 **Once all items complete:** Mark status as "Complete" at the top.

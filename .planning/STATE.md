@@ -85,8 +85,42 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 |------|-----------|--------|---------|
 | 07-01 | bulk-invite engine — React Email invite template + Resend wrapper + provision-users.ts + vitest | shipped | `07-01-SUMMARY.md` |
 | 07-02 | onboarding docs — three role one-pagers + Loom-links index + CUTOVER.md (12 country sections, Mozambique [PILOT]) + in-app `?` Help link wired through all three role shells | shipped | `07-02-SUMMARY.md` |
-| 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | pending | – |
+| 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | **paused at Task 1 checkpoint** (decision: scaffold-only — defer Q1–Q5 contact lists; lock Q6=Path 2, Q7=William-as-Owner, Q8=master account) | – |
 | 07-04 | rollout to remaining 11 countries + Loom recordings + handover ceremony | pending | – |
+
+## Phase 07 resume bookmark (2026-05-05)
+
+**Where we stopped:** Wave 1 closed cleanly (07-01 + 07-02 shipped, 8 commits on `main`). Wave 2 (07-03) paused at Task 1 — the user resolved the decision checkpoint with **"scaffold-only, leave space for users"**:
+
+- **Q1–Q5 deferred** — CSV schema is built (07-01), real PII rows wait on William's contact list.
+- **Q6 = Path 2 (n8n bridge)** for MZ pilot ingestion (locked default).
+- **Q7 = William as Supabase Owner; William + IT lead as Vercel Members** (locked default).
+- **Q8 = `para.group.n8n@gmail.com`** owns the Loom training videos (locked default — survives agency-out).
+
+**Resume path:** Re-enter `/gsd:execute-phase 7`. The orchestrator will detect 07-01 + 07-02 SUMMARYs and resume at 07-03. Spawn the 07-03 agent with the **scaffold-only directive**:
+
+1. Append the Q1–Q8 resolutions verbatim to `.planning/phases/07-rollout/07-USER-SETUP.md` (Q1–Q5 marked "deferred — awaiting William's contact list").
+2. Add `.planning/rollout-contacts.csv` + `!.planning/rollout-contacts.csv.example` negation to `.gitignore`.
+3. Create empty `.planning/rollout-contacts.csv` locally with header row + commented example rows (no real PII).
+4. Stage Phase 6 carry-over env-var checklist in `07-USER-SETUP.md` (link back to `06-USER-SETUP.md`).
+5. **STOP before** SMTP wiring + GitHub org creation + provisioning script live-run + form-side webhook flip — those are real-production actions that need William present.
+6. Close 07-03 SUMMARY at the scaffolding boundary; surface the next checkpoint as "ready for live cutover ceremony when contact list lands".
+
+**What still needs William before 07-03 can fully close:**
+
+- Real Mozambique contact list (3 rows minimum: 1 country admin + ≥2 agents)
+- Confirmation that he wants Group Sales / Martin Cox / Anele / Joyce as the defaults predict
+- Time slot for the live cutover ceremony (≤30 min synchronous)
+
+**Wave 1 deliverables already on `main`:**
+
+- `provision-users.ts` bulk-invite script (gitignored CSV input, `--dry-run` + `--country=<CC>` flags, idempotent re-runs)
+- React Email invite template (paratus-blue + accent-orange, mirrors SLA template)
+- 5 vitest cases authored against hermetic local Supabase — **NOT executed** in this environment (Docker not installed). Verification deferred to next dev box with Docker, ahead of pilot run.
+- Three role onboarding one-pagers (`docs/onboarding/{agent,country-admin,hq-admin}.md`, ≤600 words each)
+- `docs/onboarding/loom-links.md` stub with placeholder anchor (find/replace target for plan 07-04)
+- `docs/CUTOVER.md` — 12 country sections, 132 checkbox slots, Mozambique flagged `[PILOT]`
+- `?` Help icon wired into `sales-rep-shell`, `country-admin-shell`, `hq-shell` (opens role-appropriate doc on GitHub in new tab)
 
 ## Key decisions still in force
 

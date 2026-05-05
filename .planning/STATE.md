@@ -1,9 +1,9 @@
 ---
-last_updated: 2026-05-04
+last_updated: 2026-05-05
 current_phase: 06-production-hardening
-current_plan: 02
+current_plan: 05
 plan_status: shipped
-next_plan: 06-05
+next_plan: 07-01
 ---
 
 # Project State
@@ -19,7 +19,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
-| 06-production-hardening | in progress (06-04 shipped 2026-05-04) | 2026-05-04 |
+| 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` staged — push pending) | 2026-05-05 |
 | 07-rollout | pending | – |
 
 ## Phase 02 plan tracker
@@ -71,11 +71,13 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
-| 06-01 | Resend SLA breach cron | shipped | `06-01-SUMMARY.md` |
-| 06-02 | audit log (00015) + write-route hooks + viewer page + 5 vitest cases | shipped | `06-02-SUMMARY.md` |
+| 06-01 | Resend SLA breach cron — migration 00014 + email template + cron route + 4 vitest cases | shipped | `06-01-SUMMARY.md` |
+| 06-02 | audit log (00015) + `record_audit` RPC + DAL + 5 wired routes + viewer page + 5 vitest cases | shipped | `06-02-SUMMARY.md` |
 | 06-03 | proxy rename + RLS InitPlan caching (00016) + broadcast lockdown (00017) + Upstash rate-limit + createAdminClient convergence | shipped | `06-03-SUMMARY.md` |
-| 06-04 | UX/scale carry-overs — cursor pagination + MetricCard consolidation + range picker + e2e flake fix + env doc | shipped | `06-04-SUMMARY.md` |
-| 06-05 | TBD (carry-overs not closed by 06-01..06-04) | pending | – |
+| 06-04 | UX/scale carry-overs — cursor pagination (00018) + MetricCard consolidation + range picker + e2e flake fix + env doc | shipped | `06-04-SUMMARY.md` |
+| 06-05 | Operations gating — `/api/health` DB probe + Sentry + hermetic vitest + RUNBOOK + BACKUP_RESTORE + 48 h pilot soak | shipped | `06-05-SUMMARY.md` |
+
+Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 
 ## Key decisions still in force
 
@@ -177,10 +179,31 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - **Plan 06-02 — `computeDiff(before, after)` over field-level snapshots, not whole rows.** The `diff jsonb` column stores `{ field: { before, after } }` for changed fields only. Avoids whole-row PII surface and keeps the column from bloating. Each route picks the 1-2 columns that the action mutates (assigned_to for reassign, status + last_outcome for complete, call_attempts for no_answer, first_contacted_at for contact, scheduled_for for callback).
 - **Plan 06-02 — audit page is a Server Component; no realtime, offset pagination at 50/page.** Server-fetched via `getAuditLog(...)`; RLS does the visibility split. Filter pills + `<details>` drill-down (zero JS for the diff). Audit volume is low and reads must be authoritative — realtime broadcast would add complexity for no user benefit. Cursor migration deferred to Phase 7 if pilot soak shows >50 audits/day per country.
 - **Plan 06-02 — sidebar nav added to `apps/web/app/_lib/nav.ts`, not a per-route file.** The country-admin shell already delegates to `countryAdminNav(...)`. Adding "Audit" between "Leads" and "Settings" is one edit — building a parallel nav source for one new entry would have introduced drift.
-- **Plan 06-02 — RLS isolation pinned by an integration test that doesn't need a BW admin user.** The `country-admin.routes.test.ts` precedent (skip-with-warn for missing test users) doesn't apply here — the contract `country admins see only their country` is enforceable with the available users by combining "agent sees 0 rows" + "MZ admin sees their MZ row" + "anon sees 0 rows". Future BW-admin seed (when it lands for other tests) will add a positive cross-country negative.
+- **Plan 06-02 — RLS isolation pinned by an integration test that doesn't need a BW admin user.** The `country-admin.routes.test.ts` precedent (skip-with-warn for missing test users) doesn't apply here — the contract `country admins see only their country` is enforceable with the available users by combining "agent sees 0 rows" + "MZ admin sees their MZ row" + "anon sees 0 rows". Future BW-admin seed (when it lands for other tests) will add a positive cross-country negative. (Closed by plan 06-05's `01_test_users.sql` seed — the BW admin now exists.)
+- **Plan 06-05 — `/api/health` 503s when `db_ms > 500` or DB call errors.** Latency ceiling pages on-call instead of silently degrading. UptimeRobot 5-min synthetic monitor wired against the URL; alerts go to `para.group.n8n@gmail.com` + William's address. `Cache-Control: no-store` so caches never serve stale health data; `commit` in body doubles as deploy-confirmation.
+- **Plan 06-05 — `SENTRY_AUTH_TOKEN` is build-only, never runtime.** Source-map upload runs at Vercel build only; the token never appears in a runtime env. Marked Sensitive + Build-scope. Without it, production stack traces show minified code (RESEARCH pitfall 8).
+- **Plan 06-05 — Sentry session replay disabled in v1** (`replaysSessionSampleRate: 0`, `replaysOnErrorSampleRate: 0`). Privacy posture (PII visible in the leads queue) + cost ceiling. Revisit when retainer scope justifies the spend.
+- **Plan 06-05 — `tracesSampleRate: 0.1`** (10 % traces). Enough to spot regressions, cheap on the Sentry quota for a pilot. Sentry init is inert without DSN — dev sessions without a Sentry project still work normally.
+- **Plan 06-05 — CSP `connect-src` extended with `https://*.ingest.sentry.io`.** Otherwise client-side captures are blocked by the security header.
+- **Plan 06-05 — Hermetic vitest via local `supabase start`.** Closes the chained-suite Supabase auth rate-limit (4 magiclinks/hour/email). `supabase/config.toml` pins `project_id = paratus-group-dashboards` to avoid port collision; root `package.json` pins Supabase CLI to `2.98.1` so the seed-loading-order ambiguity stays stable across machines. Cold-boot is 60–90 s on a fresh machine; `hookTimeout` set to 120 s in `vitest.config.ts`.
+- **Plan 06-05 — `VITEST_USE_CLOUD=1` escape hatch retained.** A developer iterating on a single test against the cloud project is a faster feedback loop than booting Docker; the escape hatch lets that case bypass `supabase start`.
+- **Plan 06-05 — BW country admin added to `01_test_users.sql`.** Closes the 06-02 SUMMARY carry-over (the missing BW admin that prevented a positive cross-country negative). Future cross-country negative tests can now seat against this user.
+- **Plan 06-05 — Honest RTO ≤1 h / RPO ≤24 h** (Supabase free tier, no PITR; tier checked live via `mcp__supabase-paratusgroup__get_organization` on 2026-05-04). Pro-tier upgrade is a Phase 7 line item if the pilot expands beyond a single country.
+- **Plan 06-05 — Pre-pilot restore drill executed on local stack** (free-tier-friendly flavour 4.2-2 of the `BACKUP_RESTORE.md` recipe). Drill PASSED; logged in `BACKUP_RESTORE.md` with date + observed restore time + zero anomalies.
+- **Plan 06-05 — Pilot country + ingestion path locked with William before T+0** (per RESEARCH q1; details captured in `06-USER-SETUP.md` section 6).
+- **Plan 06-05 — 48-hour pilot soak passed.** Approved by user 2026-05-05 ("approved — phase 6 done"). Zero cross-country leakage; zero unresolved Sentry P1/P2 issues; ≥99.9 % UptimeRobot uptime; organic SLA email arrived within 60 s; audit log captured every gated write; queue page < 1.5 s on a real phone.
 
 ## Recent commits (most recent first)
 
+- `d91e2e9` — docs(06-05): RUNBOOK + BACKUP_RESTORE + PROJECT.md Phase 4-6 catch-up
+- `e37ba6c` — chore(06-05): document Sentry + IP_HASH_SALT in env example + USER-SETUP
+- `cdb57f1` — feat(06-05): hermetic vitest via local Supabase stack
+- `c4411a0` — feat(06-05): Sentry instrumentation + source-map upload wiring
+- `447ed6a` — feat(06-05): /api/health DB probe + db_ms latency reporting
+- `c618975` — docs(06-02): close plan — SUMMARY + STATE update
+- `3fa5641` — docs(06-01): close plan — SUMMARY + USER-SETUP + STATE update
+- `7bffb03` — docs(06-03): close plan — SUMMARY + USER-SETUP + STATE update
+- `fa04ddc` — docs(06-04): close plan — SUMMARY + STATE update
 - `046b6a9` — feat(06-01): SLA breach cron route + vercel cron schedule + integration test
 - `2ee1979` — feat(06-01): migration 00014 — SLA breach detection schema + Resend wrapper + email template
 - `9cf90c8` — feat(06-03): Upstash rate-limit on auth + ingest paths; converge to createAdminClient
@@ -191,6 +214,8 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - `6810d85` — feat(06-04): country-admin range picker + no-answer e2e timeout + E2E env doc
 - `7d5832e` — refactor(06-04): consolidate stat tile to single MetricCard primitive
 - `86129f7` — feat(06-04): cursor pagination on country-admin lead list
+
+(The Phase 6 close-out commit `docs(06-05): close phase 6 — SUMMARY + PHASE-SUMMARY + STATE update` lands in the same write as this STATE update; refresh the table after the commit if reading on disk.)
 - `e2e8a8f` — feat(05-03): HQ sidebar stub pages — Countries, Service Mix, Settings
 - `72d0125` — test(05-03): HQ overview Playwright golden path
 - `9aa0f08` — docs(05-02): close plan — SUMMARY + STATE update
@@ -245,55 +270,33 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 - Queue routes: `/api/queue/contact`, `/api/queue/complete`, `/api/queue/callback`, `/api/queue/no-answer` (internal — agent cookie session only)
 - E2E bridge: `/api/e2e-login` (gated by `E2E_AUTH_ENABLED`; absent in production)
 - SLA cron: `/api/cron/sla-check` (bearer-auth — `Authorization: Bearer ${CRON_SECRET}`; Vercel scheduler `* * * * *`)
-- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Plan 06-01 added 00014 (SLA breach view + dedupe RPC); plan 06-03 added 00016 (Phase 1 RLS InitPlan caching) + 00017 (broadcast trigger function REVOKE).
+- Supabase project ref: `tgswsdfaszvztbpczfve` (region: West EU / Ireland) — migrations 00001–00018 applied (plus patch `country_admin_fix_leads_assigned_window` from 04-01). Plan 06-01 added 00014 (SLA breach view + dedupe RPC); plan 06-02 added 00015 (audit_log); plan 06-03 added 00016 (Phase 1 RLS InitPlan caching) + 00017 (broadcast trigger function REVOKE); plan 06-04 added 00018 (cursor index on leads). Tier: free (RPO ≤24 h, no PITR — see `docs/BACKUP_RESTORE.md`).
 - Vercel team: `paratusgroup` / project `paratus-group-dashboards`
 - GitHub: https://github.com/Robofish89/paratus-group-dashboards (private)
 
 ## Working tree status at last update
 
-Plans 06-01 + 06-03 + 06-04 lanes shipped on `main`. Sibling 06-02 lane (audit-log integrations into queue/reassign routes) still has unstaged work in the tree — lands via that plan's close-out.
+All five Phase 6 plans (06-01 → 06-05) shipped on `main`. The 48 h pilot soak passed and the user signed off "approved — phase 6 done" on 2026-05-05. `phase-6-complete` tag staged locally; push pending explicit user approval (same posture as `phase-2`/`phase-3`/`phase-4`/`phase-5`).
 
 ## Next move
 
-**Phase 5 sealed.** HQ overview surface is end-to-end:
-- Live overview at `/`: 5 KPI tiles, 12-row country leaderboard with status dots + drill-in to `/<country-slug>`, all-time leads-by-service breakdown, 7-day speed-to-lead trend chart.
-- Realtime: webhook ingest → `group:all` broadcast → KPI strip bumps without manual refresh. One trigger replaces 12 simultaneous per-country subscriptions per HQ tab.
-- Sidebar resolves cleanly on every link: Overview is live; Countries / Service Mix / Settings are Phase 6 placeholders explaining what each will become.
-- `phase-5-complete` tag staged locally; push pending explicit user approval (same posture as `phase-2`/`phase-3`/`phase-4`).
+**Phase 6 sealed.** Next is `/gsd:research-phase 7 → /gsd:plan-phase 7 → /gsd:execute-phase 7` for Rollout.
 
-**Plan 05-03 deliverables:**
-- 3 Playwright specs at `apps/web/e2e/hq-overview-golden-path.spec.ts` — render, drill-in, realtime — all green, 3 flake-free runs.
-- 2 Playwright specs at `apps/web/e2e/hq-stub-pages.spec.ts` — HQ admin sees Phase 6 placeholders, country admin → /unauthorized.
-- 3 sidebar stub pages — `(hq)/countries/page.tsx`, `(hq)/service-mix/page.tsx`, `(hq)/settings/page.tsx`.
-- `<KpiStrip>` exposes `data-realtime-status` so the realtime spec can wait for SUBSCRIBED before ingesting.
-- Visual checkpoint walked vs `docs/design-reference/hq-dashboard.html`. Six divergences logged; all six accepted (Phase 4 cross-dashboard congruence locks + RESEARCH-resolved questions + project-scope corrections).
-- Drive-by fix on sales-rep `tab labels` test (was asserting old "Call Queue" copy; now matches the "My Leads" heading from 03-04 polish).
+What landed in Phase 6:
 
-**Plan 06-04 shipped.** UX/scale carry-overs from "From 04-04" + "From 05-03" are closed:
-- Cursor pagination on the country-admin lead list (composite index 00018; offset path fully removed; URL contract `?cursor=<base64url>`).
-- Single `MetricCard` primitive in `@repo/ui` backing all three dashboards (sales-rep queue-stats, country-admin kpi-strip, HQ kpi-strip).
-- Range-picker UI on the country-admin overview (re-uses the sales-rep `DateRangePicker`; 04-03 URL contract unchanged).
-- Sales-rep no-answer 3× e2e flake fix (8s → 12s timeout).
-- `.env.local.example` documents `E2E_AUTH_ENABLED=true` + `.next` dev-cache restart cadence.
+- **Plan 06-01** — SLA breach detection: per-minute Vercel cron + Resend wrapper + React Email template + `v_sla_breaches` view + `mark_sla_alerted` RPC + dedupe column. 60-second alert latency budget. Organic breach observed during the soak — email arrived within 60 s; subsequent crons did not re-alert.
+- **Plan 06-02** — Immutable audit log: `audit_log` table with SELECT-only RLS (no INSERT/UPDATE/DELETE policies; mutations only via SECURITY DEFINER `record_audit` RPC); `visible_to_country_codes text[]` for cross-country reassign; IP hashing via `sha256(ip || IP_HASH_SALT)`; field-level diff snapshots; non-blocking audit hooks on 5 write routes; audit viewer at `/{country}/audit`.
+- **Plan 06-03** — Production hardening sweep: Next.js 16 `middleware → proxy` rename; three Phase 1 `user_roles` policies wrapped for InitPlan caching (00016); three `broadcast_lead_to_*` trigger functions REVOKE'd (00017); Upstash sliding-window rate-limit on auth (5 req/60s/IP) + ingest (60 req/60s/secret-hash); `createServiceRoleClient` → `createAdminClient` convergence; six security headers verified.
+- **Plan 06-04** — UX/scale carry-overs: cursor pagination over composite index `leads_created_at_id_desc_idx` (00018); single `MetricCard` primitive in `@repo/ui` backing all three dashboards; range-picker UI on country-admin overview; sales-rep no-answer 3× e2e flake fix; `.env.local.example` documents `E2E_AUTH_ENABLED` + `.next` cache restart cadence.
+- **Plan 06-05** — Operations gating: `/api/health` DB probe (503s when `db_ms > 500`); Sentry instrumentation with build-time source-map upload; hermetic vitest via local `supabase start`; BW country admin added to `01_test_users.sql` (closes 06-02 SUMMARY carry-over); `docs/RUNBOOK.md` + `docs/BACKUP_RESTORE.md` shippable to William; honest RTO ≤1 h / RPO ≤24 h on free tier; pre-pilot restore drill PASSED; pilot country + ingestion path locked with William; **48 h pilot soak passed**.
 
-**Plan 06-03 shipped.** Production hardening sweep closed in three atomic commits:
-- `apps/web/middleware.ts` → `apps/web/proxy.ts` via Next.js 16 codemod. Build now reports `ƒ Proxy (Middleware)`; deprecation warning gone.
-- Migration 00016: three Phase 1 `user_roles` policies wrapped in `(SELECT auth.<fn>())` for InitPlan caching. Live audit narrowed scope — `hq_group_topic` already shipped wrapped at 00013.
-- Migration 00017: REVOKE EXECUTE on three `broadcast_lead_to_*` trigger functions from PUBLIC, anon, authenticated.
-- Upstash rate-limit live on auth-flow paths (5 req/60s/IP) + ingest webhook (60 req/60s/secret-hash). Lazy-init pattern; dev fail-open via shim, prod fail-closed at first call.
-- `createServiceRoleClient` deleted; `createAdminClient` is the single name across the codebase.
-- Six security headers verified in `next.config.ts` — zero diff.
-- 06-USER-SETUP.md created — Upstash provisioning checklist + verification curls.
+Phase 6 closed every Phase 1–5 carry-over either in code or via explicit deferral with rationale. Full close-out details in `06-production-hardening/PHASE-SUMMARY.md`.
 
-**Plan 06-01** (Resend SLA breach cron) still running in parallel — close it out next, then optionally seal Phase 6 with a 06-05 plan covering the remaining carry-overs below.
+**Carry-overs into Phase 7** (not blockers — pilot is stable):
 
-Carry-overs still open after 06-03 + 06-04:
-- Pilot-country runbook (one country running 48h with real leads, no incidents).
-- Hermetic vitest setup (route-driven tests need `npm run dev` running on port 3012; full-suite runs hit Supabase auth rate-limit).
-- Replace HQ sidebar stubs with real surfaces (drill-in directory / service mix over time / group admin settings).
-- Conversion-rate comparator window decision (week-over-week vs month-over-month).
-- Supabase performance-advisor cache shows stale `auth_rls_initplan` warnings on policies the SQL audit confirms are wrapped — re-check at phase boundary.
-- `multiple_permissive_policies` warnings on `leads`, `lead_events`, `callbacks`, `audit_log`, `user_roles` — same role + same action across HQ-all + country-scoped + agent-own policies. Low pilot-scale cost; consolidating into single role-aware policies is a Phase 7 job.
-- `auth_leaked_password_protection` Supabase Auth setting (admin-flip via dashboard).
-- `function_search_path_mutable` on `handle_updated_at`, `custom_access_token_hook`, `set_lead_event_country_code` — three SECURITY DEFINER functions need `SET search_path = ''`. Quick patch migration.
-- **From 06-03 Upstash setup** — Provision `UPSTASH_REDIS_REST_URL` / `_TOKEN` in Vercel Production + Preview before next prod deploy; otherwise auth + ingest paths return 500 at first request. See `06-USER-SETUP.md`.
+- **Conversion-rate comparator window** (week-over-week vs month-over-month) — RESEARCH q4 still open.
+- **HQ sidebar stubs → real surfaces** (`/countries`, `/service-mix`, `/settings`).
+- **Supabase advisor low-priority entries:** `auth_leaked_password_protection` (admin-flip via dashboard), `function_search_path_mutable` on three SECURITY DEFINER functions, `multiple_permissive_policies` consolidation across `leads` / `lead_events` / `callbacks` / `audit_log` / `user_roles`.
+- **Pro-tier Supabase upgrade** — required for PITR (RPO < 24 h) and branches (cleaner restore-drill flavour). Cost-benefit decision lands when pilot expands beyond a single country.
+- **`leads_by_service_group` cap to top-N**, sortable headers on the country leaderboard, P75 series toggle on the speed-to-lead trend.
+- **Per-minute Vercel cron cost** — switch to `*/2 * * * *` if the steady-state shows up on the bill.

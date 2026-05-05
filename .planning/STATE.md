@@ -1,9 +1,9 @@
 ---
 last_updated: 2026-05-05
-current_phase: 06-production-hardening
-current_plan: 05
+current_phase: 07-rollout
+current_plan: 02
 plan_status: shipped
-next_plan: 07-01
+next_plan: 07-03
 ---
 
 # Project State
@@ -20,7 +20,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
 | 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` staged — push pending) | 2026-05-05 |
-| 07-rollout | pending | – |
+| 07-rollout | in progress (plan 07-02 shipped) | 2026-05-05 |
 
 ## Phase 02 plan tracker
 
@@ -78,6 +78,15 @@ Phase rollup: `05-hq-overview/PHASE-SUMMARY.md`.
 | 06-05 | Operations gating — `/api/health` DB probe + Sentry + hermetic vitest + RUNBOOK + BACKUP_RESTORE + 48 h pilot soak | shipped | `06-05-SUMMARY.md` |
 
 Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
+
+## Phase 07 plan tracker
+
+| Plan | Subsystem | Status | Summary |
+|------|-----------|--------|---------|
+| 07-01 | bulk-invite engine — React Email invite template + Resend wrapper + provision-users.ts + vitest | in progress (uncommitted on tree) | – |
+| 07-02 | onboarding docs — three role one-pagers + Loom-links index + CUTOVER.md (12 country sections, Mozambique [PILOT]) + in-app `?` Help link wired through all three role shells | shipped | `07-02-SUMMARY.md` |
+| 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | pending | – |
+| 07-04 | rollout to remaining 11 countries + Loom recordings + handover ceremony | pending | – |
 
 ## Key decisions still in force
 
@@ -192,9 +201,17 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 - **Plan 06-05 — Pre-pilot restore drill executed on local stack** (free-tier-friendly flavour 4.2-2 of the `BACKUP_RESTORE.md` recipe). Drill PASSED; logged in `BACKUP_RESTORE.md` with date + observed restore time + zero anomalies.
 - **Plan 06-05 — Pilot country + ingestion path locked with William before T+0** (per RESEARCH q1; details captured in `06-USER-SETUP.md` section 6).
 - **Plan 06-05 — 48-hour pilot soak passed.** Approved by user 2026-05-05 ("approved — phase 6 done"). Zero cross-country leakage; zero unresolved Sentry P1/P2 issues; ≥99.9 % UptimeRobot uptime; organic SLA email arrived within 60 s; audit log captured every gated write; queue page < 1.5 s on a real phone.
+- **Plan 07-02 — `ONBOARDING_BASE_URL` is a compile-time constant in `packages/ui/src/onboarding-urls.ts`,** not an env var. URL is public, never rotates; lifting it into Vercel config buys nothing and adds operational burden. Single source of truth for all three role shells; future repo-owner change is one constant edit.
+- **Plan 07-02 — In-app `?` Help link points at the markdown one-pager,** never directly at a Loom URL. Re-recording a Loom never breaks the in-app link. Loom URLs live only in `docs/onboarding/loom-links.md` (filled by plan 07-04).
+- **Plan 07-02 — `docs/CUTOVER.md` duplicates the 11-item checklist verbatim per country** (12 sections × 11 items = 132 boxes). Templating would have made plan 07-03's diff hard to review (which boxes did Mozambique tick?); verbose duplication keeps the audit trail per-country obvious. Mozambique marked `[PILOT]` and ordered first; the other eleven follow alphabetically.
+- **Plan 07-02 — Onboarding one-pagers cap at 600 words and use UI labels only** (no `qualified` / `lead_events` / `outcome='won'`). Past-tense voice per the agent-copy memory. Loom slots render explicit prose ("Recording will be added during pilot cutover"), never `TODO:` markers — placeholders are themselves the contract.
+- **Plan 07-02 — Three role-shell paths in the repo are NOT identical to the plan-template paths.** Actual: `(sales-rep)/_components/sales-rep-shell.tsx`, `(country-admin)/_components/country-admin-shell.tsx`, `(hq)/_components/hq-shell.tsx`. The plan template referenced `[country]/queue/_components/queue-shell.tsx` for the agent shell — file doesn't exist; sales-rep shell is shared across all sales-rep routes. Same intent honoured — three role shells, three help links.
 
 ## Recent commits (most recent first)
 
+- `b4eb103` — feat(07-02): in-app sidebar Help link wired through all three role shells
+- `eb7c61c` — docs(07-02): per-country cutover checklist (CUTOVER.md)
+- `d86c3d3` — docs(07-02): three role onboarding one-pagers + Loom-links index
 - `d91e2e9` — docs(06-05): RUNBOOK + BACKUP_RESTORE + PROJECT.md Phase 4-6 catch-up
 - `e37ba6c` — chore(06-05): document Sentry + IP_HASH_SALT in env example + USER-SETUP
 - `cdb57f1` — feat(06-05): hermetic vitest via local Supabase stack
@@ -280,7 +297,7 @@ All five Phase 6 plans (06-01 → 06-05) shipped on `main`. The 48 h pilot soak 
 
 ## Next move
 
-**Phase 6 sealed.** Next is `/gsd:research-phase 7 → /gsd:plan-phase 7 → /gsd:execute-phase 7` for Rollout.
+**Phase 7 in progress.** Plan 07-02 (onboarding docs + cutover checklist + in-app Help link) shipped on `main`. Plan 07-01 (bulk-invite engine) appears in flight (uncommitted artifacts on the working tree — `apps/web/scripts/`, `packages/supabase/src/lib/emails/invite.tsx`, `.planning/rollout-contacts.csv.example`); needs its own close-out commit before plan 07-03. Next is `/gsd:execute-plan 07-03` (Mozambique pilot cutover) once 07-01 lands.
 
 What landed in Phase 6:
 

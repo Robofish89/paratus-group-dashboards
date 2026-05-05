@@ -31,9 +31,16 @@ export default defineConfig({
     // Each test file talks to the same Supabase project; run sequentially so
     // cleanup hooks in one file don't race the assertions in another.
     fileParallelism: false,
-    // Vitest owns `tests/` only. Playwright owns `e2e/` (different runner +
-    // BrowserContext lifecycle). Without this scope vitest tries to load
-    // .spec.ts files that import @playwright/test and crashes.
-    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    // Vitest owns `tests/` and `scripts/__tests__/` only. Playwright owns
+    // `e2e/` (different runner + BrowserContext lifecycle). Without this
+    // scope vitest tries to load .spec.ts files that import
+    // @playwright/test and crashes.
+    //
+    // `scripts/__tests__/` is the build-tool-boundary lane — provisioning
+    // script + future bulk migration tools live there with their tests.
+    include: [
+      "tests/**/*.{test,spec}.{ts,tsx}",
+      "scripts/__tests__/**/*.{test,spec}.{ts,tsx}",
+    ],
   },
 });

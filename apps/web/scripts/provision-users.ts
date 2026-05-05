@@ -325,7 +325,22 @@ function assertEnv(dryRun: boolean): void {
 
 // ── Main entry ────────────────────────────────────────────────────────────
 
-export async function main(argv: string[]): Promise<number> {
+export interface MainOverrides {
+  /**
+   * Test-only injection point. The integration test (07-01 Task 3) passes
+   * its own admin client so vi.spyOn can observe the call order on
+   * `auth.admin.generateLink` vs `from('user_roles').upsert` — the JWT-hook
+   * ordering contract is the single most important behavioural invariant
+   * of this script and is pinned by a test against a real Supabase stack.
+   */
+  admin?: ReturnType<typeof createAdminClient>;
+  appUrl?: string;
+}
+
+export async function main(
+  argv: string[],
+  overrides: MainOverrides = {},
+): Promise<number> {
   const args = parseArgs(argv);
   assertEnv(args.dryRun);
 
@@ -372,8 +387,8 @@ export async function main(argv: string[]): Promise<number> {
 
     if (!deps) {
       deps = {
-        admin: createAdminClient(),
-        appUrl: process.env.NEXT_PUBLIC_APP_URL!,
+        admin: overrides.admin ?? createAdminClient(),
+        appUrl: overrides.appUrl ?? process.env.NEXT_PUBLIC_APP_URL!,
       };
     }
 

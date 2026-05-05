@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout, type DashboardUser } from "@repo/ui";
+import { DashboardLayout, ONBOARDING_BASE_URL, type DashboardUser } from "@repo/ui";
 import { salesRepNav } from "@/app/_lib/nav";
 
 interface SalesRepShellProps {
@@ -32,6 +32,7 @@ export function SalesRepShell({
       subtitle={subtitle}
       user={user}
       signOutHref="/api/auth/logout"
+      helpHref={`${ONBOARDING_BASE_URL}/docs/onboarding/agent.md`}
     >
       {children}
     </DashboardLayout>

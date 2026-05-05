@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout, type DashboardUser } from "@repo/ui";
+import { DashboardLayout, ONBOARDING_BASE_URL, type DashboardUser } from "@repo/ui";
 import { hqNav } from "@/app/_lib/nav";
 
 interface HQShellProps {
@@ -28,6 +28,7 @@ export function HQShell({
       subtitle={subtitle}
       user={user}
       signOutHref="/api/auth/logout"
+      helpHref={`${ONBOARDING_BASE_URL}/docs/onboarding/hq-admin.md`}
     >
       {children}
     </DashboardLayout>

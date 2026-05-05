@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout, type DashboardUser } from "@repo/ui";
+import { DashboardLayout, ONBOARDING_BASE_URL, type DashboardUser } from "@repo/ui";
 import { countryAdminNav } from "@/app/_lib/nav";
 
 interface CountryAdminShellProps {
@@ -32,6 +32,7 @@ export function CountryAdminShell({
       subtitle={subtitle}
       user={user}
       signOutHref="/api/auth/logout"
+      helpHref={`${ONBOARDING_BASE_URL}/docs/onboarding/country-admin.md`}
     >
       {children}
     </DashboardLayout>

@@ -106,3 +106,6 @@ export type {
   NavItem,
   DashboardUser,
 } from "./layouts/dashboard-layout";
+
+// Onboarding constants
+export { ONBOARDING_BASE_URL } from "./onboarding-urls";

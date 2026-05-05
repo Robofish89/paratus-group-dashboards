@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type LucideIcon, LogOut } from "lucide-react";
+import { type LucideIcon, HelpCircle, LogOut } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export interface NavItem {
@@ -40,6 +40,12 @@ interface DashboardLayoutProps {
    * cannot use `usePathname`. When omitted, falls back to the client pathname.
    */
   currentPath?: string;
+  /**
+   * External URL (typically a GitHub-rendered onboarding markdown page)
+   * opened in a new tab. When provided, renders a small `?` Help link in
+   * the sidebar footer above the sign-out row.
+   */
+  helpHref?: string;
 }
 
 function getInitials(name: string): string {
@@ -63,6 +69,7 @@ function DashboardLayout({
   onSignOut,
   signOutHref,
   currentPath,
+  helpHref,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const activePath = currentPath ?? pathname;
@@ -140,6 +147,17 @@ function DashboardLayout({
                 </div>
               </div>
             </div>
+            {helpHref && (
+              <a
+                href={helpHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[12px] text-[#64748b] hover:text-[#94a3b8] transition-colors mb-2"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Help
+              </a>
+            )}
             {signOutHref ? (
               <form action={signOutHref} method="POST">
                 <button

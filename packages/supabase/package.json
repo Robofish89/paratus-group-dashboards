@@ -16,7 +16,9 @@
     "./schemas/queue": "./src/schemas/queue.ts",
     "./realtime": "./src/realtime.ts",
     "./lib/rate-limit": "./src/lib/rate-limit.ts",
-    "./lib/email": "./src/lib/email.ts"
+    "./lib/email": "./src/lib/email.ts",
+    "./lib/emails/invite": "./src/lib/emails/invite.tsx",
+    "./lib/emails/sla-breach": "./src/lib/emails/sla-breach.tsx"
   },
   "peerDependencies": {
     "next": ">=14",

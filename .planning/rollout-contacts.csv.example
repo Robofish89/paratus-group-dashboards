@@ -1,0 +1,4 @@
+email,role,country_code,full_name
+hq.test@example.com,hq_admin,,HQ Test User
+admin.test@example.com,country_admin,MZ,Mozambique Admin Test
+agent.test@example.com,agent,MZ,Mozambique Agent Test

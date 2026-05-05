@@ -44,3 +44,7 @@ apps/web/playwright/.cache/
 # Supabase logical backups (PII; large; never commit).
 # See docs/BACKUP_RESTORE.md.
 backups/
+
+# Phase 7 rollout — real contact list contains PII (real emails / names);
+# the .example file is committed, the real CSV is not.
+.planning/rollout-contacts.csv

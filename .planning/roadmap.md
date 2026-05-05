@@ -60,6 +60,6 @@ Phase 7 follows Phase 6 (no rollout without a hardened pilot).
 
 ## Next Action
 
-Phases 1, 2, 3, 4, and 5 shipped (tags `phase-1-complete`, `phase-2-complete` staged, `phase-3-complete` staged, `phase-4-complete` staged, `phase-5-complete` staged). Per-phase shipping status tracked in `.planning/STATE.md`.
+Phases 1, 2, 3, 4, 5, and 6 shipped (tag `phase-1-complete`, plus `phase-2-complete`, `phase-3-complete`, `phase-4-complete`, `phase-5-complete`, `phase-6-complete` all staged locally — push pending). Per-phase shipping status tracked in `.planning/STATE.md`.
 
-Run `/gsd:research-phase 6` → `/gsd:plan-phase 6` → `/gsd:execute-phase 6` for Production Hardening.
+Run `/gsd:research-phase 7` → `/gsd:plan-phase 7` → `/gsd:execute-phase 7` for Rollout (last phase of milestone).

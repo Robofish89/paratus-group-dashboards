@@ -1,7 +1,7 @@
 ---
 last_updated: 2026-05-05
 current_phase: 07-rollout
-current_plan: 02
+current_plan: 01
 plan_status: shipped
 next_plan: 07-03
 ---
@@ -20,7 +20,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
 | 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` staged — push pending) | 2026-05-05 |
-| 07-rollout | in progress (plan 07-02 shipped) | 2026-05-05 |
+| 07-rollout | in progress (plans 07-01 + 07-02 shipped) | 2026-05-05 |
 
 ## Phase 02 plan tracker
 
@@ -83,7 +83,7 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 
 | Plan | Subsystem | Status | Summary |
 |------|-----------|--------|---------|
-| 07-01 | bulk-invite engine — React Email invite template + Resend wrapper + provision-users.ts + vitest | in progress (uncommitted on tree) | – |
+| 07-01 | bulk-invite engine — React Email invite template + Resend wrapper + provision-users.ts + vitest | shipped | `07-01-SUMMARY.md` |
 | 07-02 | onboarding docs — three role one-pagers + Loom-links index + CUTOVER.md (12 country sections, Mozambique [PILOT]) + in-app `?` Help link wired through all three role shells | shipped | `07-02-SUMMARY.md` |
 | 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | pending | – |
 | 07-04 | rollout to remaining 11 countries + Loom recordings + handover ceremony | pending | – |
@@ -201,6 +201,14 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 - **Plan 06-05 — Pre-pilot restore drill executed on local stack** (free-tier-friendly flavour 4.2-2 of the `BACKUP_RESTORE.md` recipe). Drill PASSED; logged in `BACKUP_RESTORE.md` with date + observed restore time + zero anomalies.
 - **Plan 06-05 — Pilot country + ingestion path locked with William before T+0** (per RESEARCH q1; details captured in `06-USER-SETUP.md` section 6).
 - **Plan 06-05 — 48-hour pilot soak passed.** Approved by user 2026-05-05 ("approved — phase 6 done"). Zero cross-country leakage; zero unresolved Sentry P1/P2 issues; ≥99.9 % UptimeRobot uptime; organic SLA email arrived within 60 s; audit log captured every gated write; queue page < 1.5 s on a real phone.
+- **Plan 07-01 — bulk-invite engine ships as a CLI script, not a route.** `apps/web/scripts/provision-users.ts` runs from a developer machine with `SUPABASE_SERVICE_ROLE_KEY` in env. Per-row order is locked: createUser → upsert user_roles → generateLink → sendInviteEmail. The order closes the JWT-hook race (custom_access_token_hook reads public.user_roles; clicking the invite before the role row exists yields null claims and bounces to /unauthorized). Sequential `for…of` over rows (not `Promise.all`) keeps Resend free-tier ratelimit (10 req/sec) safe and makes failure attribution per-row trivial.
+- **Plan 07-01 — `inviteUserByEmail` is permanently retired.** supabase/auth#2180 breaks re-invite for existing users. The script always uses `auth.admin.generateLink({ type: 'invite' })` + Resend send; works on first send AND on re-runs (the "user lost the email" recovery posture is intentional). Re-running the script on the same CSV produces zero net DB writes and one re-send per row.
+- **Plan 07-01 — `INVITE_FROM_EMAIL` is OPTIONAL** with a documented fallback to `SLA_ALERT_FROM_EMAIL`. One Resend sender domain serves both transactional flows. The override exists for the case where William wants `welcome@` vs `alerts@` segmentation; provisioning a second env var by default would have been infrastructure for a thing nobody asked for.
+- **Plan 07-01 — `__resetResendClientForTests` renamed → `__resetEmailClientForTests`** with a deprecation alias preserved. Now that `email.ts` has two send functions sharing one cached Resend client, the cache-reset helper's name leaks SDK detail. Old name still works so the SLA cron test (`apps/web/tests/sla.cron.test.ts`) keeps passing without an immediate edit.
+- **Plan 07-01 — `papaparse` (not `csv-parse`) for the rollout CSV.** `papaparse` is already an `apps/web` dep (path-3 CSV importer at `/api/leads/import-csv`). Adding a parallel parser would duplicate surface for zero gain. The plan template said `csv-parse/sync`; existence-check + minimal-deps win.
+- **Plan 07-01 — `tsx --require ./apps/web/scripts/_server-only-preload.cjs ...`** to launch the script. The script transitively imports `@repo/supabase/admin` and `@repo/supabase/lib/email`, both `import 'server-only'`. Plain tsx crashes at import. The preloader is a tiny CJS require-hook that aliases `server-only` → empty CJS module. Production Next builds enforce the boundary unchanged (Webpack/Turbopack still bind `server-only` to its real implementation). Same posture vitest's resolve.alias entry already takes for the test suite.
+- **Plan 07-01 — `main(argv, overrides)` accepts an injected admin client.** The injection point exists exclusively for the JWT-hook ordering test (Task 3 case 3) — vitest spies on the same admin instance the script uses to assert that user_roles upsert resolves BEFORE generateLink fires. The CLI bootstrap path never passes overrides; production flow is unchanged.
+- **Plan 07-01 — Tests live at `apps/web/scripts/__tests__/`** (not `apps/web/tests/`). The script is a build-tool boundary; keeping the test next to the source makes the locality clear and means a future migration of the runner config doesn't sweep them into the wrong lane. `vitest.config.ts` `include` extended to cover both paths.
 - **Plan 07-02 — `ONBOARDING_BASE_URL` is a compile-time constant in `packages/ui/src/onboarding-urls.ts`,** not an env var. URL is public, never rotates; lifting it into Vercel config buys nothing and adds operational burden. Single source of truth for all three role shells; future repo-owner change is one constant edit.
 - **Plan 07-02 — In-app `?` Help link points at the markdown one-pager,** never directly at a Loom URL. Re-recording a Loom never breaks the in-app link. Loom URLs live only in `docs/onboarding/loom-links.md` (filled by plan 07-04).
 - **Plan 07-02 — `docs/CUTOVER.md` duplicates the 11-item checklist verbatim per country** (12 sections × 11 items = 132 boxes). Templating would have made plan 07-03's diff hard to review (which boxes did Mozambique tick?); verbose duplication keeps the audit trail per-country obvious. Mozambique marked `[PILOT]` and ordered first; the other eleven follow alphabetically.
@@ -209,6 +217,10 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 
 ## Recent commits (most recent first)
 
+- `0c2367c` — test(07-01): provision-users.ts integration tests against hermetic stack
+- `c5241e2` — feat(07-01): provision-users.ts bulk-invite script + tsx + CSV example
+- `b0ecc94` — feat(07-01): React Email invite template + sendInviteEmail wrapper
+- `9b161db` — docs(07-02): close plan — SUMMARY + STATE update
 - `b4eb103` — feat(07-02): in-app sidebar Help link wired through all three role shells
 - `eb7c61c` — docs(07-02): per-country cutover checklist (CUTOVER.md)
 - `d86c3d3` — docs(07-02): three role onboarding one-pagers + Loom-links index

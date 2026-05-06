@@ -1,8 +1,8 @@
 ---
-last_updated: 2026-05-05
+last_updated: 2026-05-06
 current_phase: 07-rollout
-current_plan: 03
-plan_status: shipped (scaffold-only — live cutover deferred)
+current_plan: 05
+plan_status: shipped (pre-pilot UI polish + RLS scoping fix on 2026-05-06)
 next_plan: 07-03 (live cutover ceremony) → 07-04
 ---
 
@@ -20,7 +20,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
 | 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` staged — push pending) | 2026-05-05 |
-| 07-rollout | in progress (plans 07-01 + 07-02 shipped) | 2026-05-05 |
+| 07-rollout | in progress (plans 07-01 + 07-02 + 07-05 shipped; 07-03 scaffold-only awaiting William) | 2026-05-06 |
 
 ## Phase 02 plan tracker
 
@@ -87,6 +87,7 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 | 07-02 | onboarding docs — three role one-pagers + Loom-links index + CUTOVER.md (12 country sections, Mozambique [PILOT]) + in-app `?` Help link wired through all three role shells | shipped | `07-02-SUMMARY.md` |
 | 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | **shipped (scaffold-only — live cutover deferred to next session with William present)** | `07-03-SUMMARY.md` |
 | 07-04 | rollout to remaining 11 countries + Loom recordings + handover ceremony | **blocked on 07-03 live cutover completing** | – |
+| 07-05 | pre-pilot UI polish + RLS scoping fix — 3 HQ stubs replaced with real surfaces, country-admin scoping leak fixed, empty-state polish, Phase 6 audit log surfaced on dashboard layer, country-admin Settings page, nav/stale-comment sweep, Vercel cron throttled to daily for Hobby unblock | shipped 2026-05-06 (8 commits, all deployed Ready) | `07-05-SUMMARY.md` |
 
 ## Phase 07 resume bookmark (2026-05-05 — updated post-07-03 scaffold)
 
@@ -250,6 +251,14 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 
 ## Recent commits (most recent first)
 
+- `1d4b6a2` — feat(country-admin): real Settings page (was 404'ing) [07-05]
+- `e3afaaf` — feat(country-admin): per-country Recent Activity panel + extend DAL [07-05]
+- `2199c7d` — feat(country-admin): empty-state banner for zero-lead countries [07-05]
+- `245fc55` — fix(country-admin): scope leads list + export to URL country (HQ leak) [07-05]
+- `f8623c2` — feat(hq): surface Phase 6 audit log on Overview via Recent Activity panel [07-05]
+- `3999cbf` — feat(hq): empty-state status dot + real Settings + stale comment cleanup [07-05]
+- `fa639cb` — feat(hq): replace stubs with real Countries directory + Service Mix table [07-05]
+- `a954a3d` — chore(deploy): throttle SLA-check cron to daily for Hobby-plan deploys [07-05]
 - `0c2367c` — test(07-01): provision-users.ts integration tests against hermetic stack
 - `c5241e2` — feat(07-01): provision-users.ts bulk-invite script + tsx + CSV example
 - `b0ecc94` — feat(07-01): React Email invite template + sendInviteEmail wrapper
@@ -357,8 +366,8 @@ Phase 6 closed every Phase 1–5 carry-over either in code or via explicit defer
 **Carry-overs into Phase 7** (not blockers — pilot is stable):
 
 - **Conversion-rate comparator window** (week-over-week vs month-over-month) — RESEARCH q4 still open.
-- **HQ sidebar stubs → real surfaces** (`/countries`, `/service-mix`, `/settings`).
+- ~~**HQ sidebar stubs → real surfaces** (`/countries`, `/service-mix`, `/settings`).~~ **Closed in plan 07-05 (2026-05-06)** — three HQ surfaces + country-admin Settings now real read-only pages.
 - **Supabase advisor low-priority entries:** `auth_leaked_password_protection` (admin-flip via dashboard), `function_search_path_mutable` on three SECURITY DEFINER functions, `multiple_permissive_policies` consolidation across `leads` / `lead_events` / `callbacks` / `audit_log` / `user_roles`.
-- **Pro-tier Supabase upgrade** — required for PITR (RPO < 24 h) and branches (cleaner restore-drill flavour). Cost-benefit decision lands when pilot expands beyond a single country.
+- **Pro-tier Supabase upgrade** — required for PITR (RPO < 24 h) and branches (cleaner restore-drill flavour). Cost-benefit decision lands when pilot expands beyond a single country. Also gates restoring the SLA cron from daily back to per-minute (throttled in plan 07-05 to unblock Hobby-plan deploys).
 - **`leads_by_service_group` cap to top-N**, sortable headers on the country leaderboard, P75 series toggle on the speed-to-lead trend.
-- **Per-minute Vercel cron cost** — switch to `*/2 * * * *` if the steady-state shows up on the bill.
+- ~~**Per-minute Vercel cron cost** — switch to `*/2 * * * *` if the steady-state shows up on the bill.~~ **Forced to daily in plan 07-05** by the Hobby-plan limit; revisit cadence on Pro upgrade.

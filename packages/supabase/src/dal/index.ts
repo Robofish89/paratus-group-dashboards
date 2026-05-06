@@ -84,6 +84,7 @@ export type { BreachLead } from './sla';
 export {
   recordAudit,
   getAuditLog,
+  getRecentGroupActivity,
   computeDiff,
   hashIpAddress,
   AUDIT_LOG_PAGE_SIZE,
@@ -96,4 +97,5 @@ export type {
   RecordAuditInput,
   GetAuditLogInput,
   GetAuditLogResult,
+  GroupActivityRow,
 } from './audit';

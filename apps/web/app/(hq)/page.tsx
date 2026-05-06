@@ -3,6 +3,7 @@ import {
   getGroupSpeedToLeadSeries,
   getGroupTodayStats,
   getLeadsByServiceGroup,
+  getRecentGroupActivity,
 } from "@repo/supabase/dal";
 import { dashboardUserFor, requireRole } from "@/app/_lib/auth";
 import { HQShell } from "./_components/hq-shell";
@@ -10,6 +11,7 @@ import { KpiStrip } from "./_components/kpi-strip";
 import { CountryLeaderboard } from "./_components/country-leaderboard";
 import { LeadsByServiceCard } from "./_components/leads-by-service-card";
 import { SpeedToLeadTrendCard } from "./_components/speed-to-lead-trend-card";
+import { RecentActivityCard } from "./_components/recent-activity-card";
 
 /**
  * Plan-05-02 surface — HQ overview. Server fetches all 4 dashboard sources in
@@ -22,12 +24,14 @@ import { SpeedToLeadTrendCard } from "./_components/speed-to-lead-trend-card";
 export default async function HQOverviewPage() {
   const { user, claims } = await requireRole(["hq_admin"]);
 
-  const [today, countries, leadsByService, speedSeries] = await Promise.all([
-    getGroupTodayStats(),
-    getCountryPerformanceToday(),
-    getLeadsByServiceGroup(),
-    getGroupSpeedToLeadSeries(7),
-  ]);
+  const [today, countries, leadsByService, speedSeries, activity] =
+    await Promise.all([
+      getGroupTodayStats(),
+      getCountryPerformanceToday(),
+      getLeadsByServiceGroup(),
+      getGroupSpeedToLeadSeries(7),
+      getRecentGroupActivity(10),
+    ]);
 
   return (
     <HQShell
@@ -45,6 +49,8 @@ export default async function HQOverviewPage() {
           <LeadsByServiceCard items={leadsByService} />
           <SpeedToLeadTrendCard series={speedSeries} />
         </div>
+
+        <RecentActivityCard rows={activity} />
       </div>
     </HQShell>
   );

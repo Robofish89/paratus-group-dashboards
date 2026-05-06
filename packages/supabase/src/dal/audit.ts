@@ -84,6 +84,26 @@ export interface GetAuditLogResult {
 /** Default page size for the audit viewer. */
 export const AUDIT_LOG_PAGE_SIZE = 50;
 
+/**
+ * Compact row shape for the HQ Overview "Recent group activity" panel.
+ * Joins `audit_log` with the actor's `user_roles.display_name` and the
+ * `countries.name` for the surfaced row's `country_code`. Whatever is
+ * visible to the caller through RLS — HQ admins see all rows; country
+ * admins see their country plus cross-country-visible rows.
+ */
+export interface GroupActivityRow {
+  id: string;
+  created_at: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  country_code: string;
+  country_name: string | null;
+  actor_id: string | null;
+  actor_role: string;
+  actor_display_name: string | null;
+}
+
 // ─── Writes ────────────────────────────────────────────────────────────────
 
 /**
@@ -151,6 +171,100 @@ export async function getAuditLog(
     rows: (data ?? []) as AuditRow[],
     total: count ?? 0,
   };
+}
+
+/**
+ * Most recent N audit rows visible to the caller, with actor display name +
+ * country name resolved in one pass. RLS scopes row visibility — HQ admins
+ * see the entire group; country admins see their own + cross-country-visible
+ * rows; agents see nothing. Powers the HQ Overview "Recent group activity"
+ * panel.
+ *
+ * Three reads in parallel — audit_log, user_roles (actors), countries —
+ * zipped in JS. No new view: keeps the DAL surgical and the perf bounded
+ * (`limit` capped to 25).
+ */
+export async function getRecentGroupActivity(
+  limit: number = 10,
+): Promise<GroupActivityRow[]> {
+  const cap = Math.max(1, Math.min(Math.floor(limit), 25));
+  const supabase = await createClient();
+
+  const { data: rows, error } = await supabase
+    .from('audit_log')
+    .select(
+      'id, created_at, action, target_type, target_id, country_code, actor_id, actor_role',
+    )
+    .order('created_at', { ascending: false })
+    .limit(cap);
+
+  if (error) {
+    throw new Error(`getRecentGroupActivity audit failed: ${error.message}`);
+  }
+
+  const visible = rows ?? [];
+  if (visible.length === 0) return [];
+
+  const actorIds = Array.from(
+    new Set(
+      visible
+        .map((r) => r.actor_id)
+        .filter((v): v is string => typeof v === 'string'),
+    ),
+  );
+  const countryCodes = Array.from(
+    new Set(visible.map((r) => r.country_code).filter(Boolean)),
+  );
+
+  const [actorRes, countryRes] = await Promise.all([
+    actorIds.length > 0
+      ? supabase
+          .from('user_roles')
+          .select('user_id, display_name')
+          .in('user_id', actorIds)
+      : Promise.resolve({ data: [], error: null as null }),
+    countryCodes.length > 0
+      ? supabase
+          .from('countries')
+          .select('code, name')
+          .in('code', countryCodes)
+      : Promise.resolve({ data: [], error: null as null }),
+  ]);
+
+  if (actorRes.error) {
+    throw new Error(
+      `getRecentGroupActivity actors failed: ${actorRes.error.message}`,
+    );
+  }
+  if (countryRes.error) {
+    throw new Error(
+      `getRecentGroupActivity countries failed: ${countryRes.error.message}`,
+    );
+  }
+
+  const actorById = new Map<string, string | null>();
+  for (const a of actorRes.data ?? []) {
+    actorById.set(a.user_id, a.display_name ?? null);
+  }
+  const countryByCode = new Map<string, string>();
+  for (const c of countryRes.data ?? []) {
+    countryByCode.set(c.code, c.name);
+  }
+
+  return visible.map((r) => ({
+    id: r.id,
+    created_at: r.created_at,
+    action: r.action,
+    target_type: r.target_type,
+    target_id: r.target_id,
+    country_code: r.country_code,
+    country_name: countryByCode.get(r.country_code) ?? null,
+    actor_id: r.actor_id ?? null,
+    actor_role: r.actor_role,
+    actor_display_name: r.actor_id
+      ? (actorById.get(r.actor_id) ?? null)
+      : null,
+  }));
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

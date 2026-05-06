@@ -7,8 +7,8 @@ import type { DateRangeKey } from "@/app/_lib/date-range";
  * Range picker for the country-admin overview header (plan 06-04 task 3).
  *
  * Phase 4 plan 04-03 wired the URL contract `?range=today|week|month|custom`
- * (+ `?from`/`?to`) on the country-admin overview but deferred the picker
- * UI itself. Phase 6 closes the gap.
+ * (+ `?from`/`?to`) on the country-admin overview; the picker UI was
+ * deferred to plan 06-04 task 3 and shipped there.
  *
  * The sales-rep `<DateRangePicker />` is route-agnostic (relative-URL
  * router.replace, shared `parseRangeParams` helper from

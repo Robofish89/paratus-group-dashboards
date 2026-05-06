@@ -125,10 +125,17 @@ export type CountryDirectoryRow = z.infer<typeof countryDirectoryRowSchema>;
  * leaderboard and the "Avg Speed to Lead" KPI tile ring. Per plan 05 RESEARCH
  * open question 2 (recommendation: fixed in DAL):
  *
- *   - null      → red (no contacted leads is treated as "off target")
- *   - <  300s   → green ("On Target <5 min")
- *   - <= 480s   → amber ("Watch 5–8 min")
- *   - >  480s   → red   ("Critical >8 min")
+ *   - hasData=false → none  (empty market — no leads in window; neutral grey)
+ *   - null seconds  → red   (no contacted leads despite leads existing → off target)
+ *   - <  300s       → green ("On Target <5 min")
+ *   - <= 480s       → amber ("Watch 5–8 min")
+ *   - >  480s       → red   ("Critical >8 min")
+ *
+ * The `hasData` option lets callers distinguish "this country is genuinely
+ * empty" from "this country has leads but none have been contacted." Without
+ * it, every freshly-seeded country renders red — misleading because it
+ * conflates "no signal yet" with "alarm." Defaults to `true` so existing
+ * callers keep their semantics.
  *
  * Pure function — lives in `schemas/` so client components, server components,
  * and route handlers can all import it without crossing the `server-only`
@@ -139,11 +146,18 @@ export const RESPONSE_STATUS_THRESHOLDS = {
   amber: 480, // 8 minutes
 } as const;
 
-export type ResponseStatus = 'green' | 'amber' | 'red';
+export type ResponseStatus = 'green' | 'amber' | 'red' | 'none';
+
+export interface ResponseStatusOptions {
+  /** True when the country/window has at least one lead. Defaults to true. */
+  hasData?: boolean;
+}
 
 export function computeResponseStatus(
   seconds: number | null,
+  options: ResponseStatusOptions = {},
 ): ResponseStatus {
+  if (options.hasData === false) return 'none';
   if (seconds === null) return 'red';
   if (seconds < RESPONSE_STATUS_THRESHOLDS.green) return 'green';
   if (seconds <= RESPONSE_STATUS_THRESHOLDS.amber) return 'amber';

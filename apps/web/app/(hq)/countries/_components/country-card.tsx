@@ -14,6 +14,21 @@ const STATUS_DOT: Record<ResponseStatus, string> = {
   green: "bg-emerald-500",
   amber: "bg-amber-500",
   red: "bg-red-500",
+  none: "bg-slate-300",
+};
+
+const STATUS_PILL: Record<ResponseStatus, string> = {
+  green: "bg-emerald-50 text-emerald-700",
+  amber: "bg-amber-50 text-amber-700",
+  red: "bg-red-50 text-red-700",
+  none: "bg-slate-100 text-slate-500",
+};
+
+const STATUS_LABEL: Record<ResponseStatus, string> = {
+  green: "Active",
+  amber: "Active",
+  red: "Active",
+  none: "Awaiting data",
 };
 
 function formatPct(value: number | null): string {
@@ -49,7 +64,10 @@ function CountryCodeBadge({ code }: { code: string }) {
 export function CountryCard({ row }: CountryCardProps) {
   const isComingSoon = row.status === "coming_soon";
   const slug = row.country_code.toLowerCase();
-  const responseStatus = computeResponseStatus(row.avg_response_seconds);
+  const hasData = (row.total_leads ?? 0) > 0;
+  const responseStatus = computeResponseStatus(row.avg_response_seconds, {
+    hasData,
+  });
 
   if (isComingSoon) {
     return (
@@ -126,7 +144,7 @@ export function CountryCard({ row }: CountryCardProps) {
           className={cn(
             "inline-flex items-center gap-1.5",
             "px-2.5 py-1 rounded-full",
-            "bg-emerald-50 text-emerald-700",
+            STATUS_PILL[responseStatus],
             "text-[11px] font-semibold uppercase tracking-wider",
           )}
         >
@@ -136,7 +154,7 @@ export function CountryCard({ row }: CountryCardProps) {
               STATUS_DOT[responseStatus],
             )}
           />
-          Active
+          {STATUS_LABEL[responseStatus]}
         </span>
       </div>
 

@@ -49,10 +49,14 @@ function formatDuration(seconds: number | null): string {
   return `${secs}s`;
 }
 
-function avgSpeedAccent(seconds: number | null): MetricCardAccent {
-  const status = computeResponseStatus(seconds);
+function avgSpeedAccent(
+  seconds: number | null,
+  hasData: boolean,
+): MetricCardAccent {
+  const status = computeResponseStatus(seconds, { hasData });
   if (status === "green") return "emerald";
   if (status === "amber") return "amber";
+  if (status === "none") return "slate";
   return "rose";
 }
 
@@ -126,7 +130,7 @@ export function KpiStrip({ today }: KpiStripProps) {
     {
       key: "avg_speed",
       label: "Avg Speed to Lead",
-      accent: avgSpeedAccent(avgSpeedSeconds),
+      accent: avgSpeedAccent(avgSpeedSeconds, totalLeads > 0),
       value: formatDuration(avgSpeedSeconds),
     },
     {

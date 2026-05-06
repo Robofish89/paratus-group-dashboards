@@ -38,6 +38,7 @@ const STATUS_DOT: Record<ResponseStatus, string> = {
   green: "bg-emerald-500",
   amber: "bg-amber-500",
   red: "bg-red-500",
+  none: "bg-slate-300",
 };
 
 function formatPct(value: number | null): string {
@@ -95,6 +96,7 @@ export function CountryLeaderboard({ rows }: CountryLeaderboardProps) {
               {rows.map((row) => {
                 const status = computeResponseStatus(
                   row.avg_response_seconds,
+                  { hasData: (row.total_leads ?? 0) > 0 },
                 );
                 const slug = (row.country_code ?? "").toLowerCase();
                 return (

@@ -166,4 +166,19 @@ describe("HQ overview DAL behaviour (RLS + RPC guards in force)", () => {
       computeResponseStatus(RESPONSE_STATUS_THRESHOLDS.amber + 1),
     ).toBe("red");
   });
+
+  // ─── 7. computeResponseStatus — hasData=false short-circuits to none ────
+  test("computeResponseStatus: hasData=false returns 'none' regardless of seconds", () => {
+    // Empty country (no leads at all) — must NOT alarm red just because
+    // avg_response_seconds is null. Semantically distinct from "leads exist
+    // but none have been contacted" which is genuinely off-target (red).
+    expect(computeResponseStatus(null, { hasData: false })).toBe("none");
+    expect(computeResponseStatus(0, { hasData: false })).toBe("none");
+    expect(computeResponseStatus(600, { hasData: false })).toBe("none");
+
+    // hasData=true (or omitted) keeps the existing semantics intact.
+    expect(computeResponseStatus(null, { hasData: true })).toBe("red");
+    expect(computeResponseStatus(120, { hasData: true })).toBe("green");
+    expect(computeResponseStatus(120)).toBe("green");
+  });
 });

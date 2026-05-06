@@ -96,7 +96,7 @@ export default async function SalesRepQueuePage({
 
   const observerNotice =
     claims.user_role === "hq_admin"
-      ? "HQ observing — agent-scoped data is empty by RLS. Pick an agent in the country admin dashboard once Phase 4 ships."
+      ? "HQ observing — agent-scoped data is empty by RLS. Open the country admin dashboard to drill into a specific agent."
       : undefined;
 
   return (

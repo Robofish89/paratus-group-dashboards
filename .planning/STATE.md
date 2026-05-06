@@ -2,8 +2,8 @@
 last_updated: 2026-05-06
 current_phase: 07-rollout
 current_plan: 06
-plan_status: spec only — 07-06 advisor sweep drafted, not applied
-next_plan: 07-03 (live cutover ceremony) → 07-04 — 07-06 applied at next dedicated DB session
+plan_status: shipped (advisor sweep Tier 1 applied via migration 00019)
+next_plan: 07-03 (live cutover ceremony) → 07-04 — both blocked on William's Q1-Q8 + synchronous live cutover
 ---
 
 # Project State
@@ -20,7 +20,7 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 | 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` on origin) | 2026-05-04 |
 | 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` on origin) | 2026-05-04 |
 | 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` on origin) | 2026-05-05 |
-| 07-rollout | in progress (plans 07-01 + 07-02 + 07-05 shipped; 07-03 scaffold-only awaiting William; 07-06 spec-only awaiting DB session) | 2026-05-06 |
+| 07-rollout | in progress (plans 07-01 + 07-02 + 07-05 + 07-06 shipped; 07-03 scaffold-only + 07-04 blocked awaiting William's Q1-Q8 + live cutover) | 2026-05-06 |
 
 ## Phase 02 plan tracker
 
@@ -88,7 +88,7 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 | 07-03 | pilot cutover — Mozambique provisioning + smoke-test + form-side webhook flip + 24-48 h soak + sign-off | **shipped (scaffold-only — live cutover deferred to next session with William present)** | `07-03-SUMMARY.md` |
 | 07-04 | rollout to remaining 11 countries + Loom recordings + handover ceremony | **blocked on 07-03 live cutover completing** | – |
 | 07-05 | pre-pilot UI polish + RLS scoping fix — 3 HQ stubs replaced with real surfaces, country-admin scoping leak fixed, empty-state polish, Phase 6 audit log surfaced on dashboard layer, country-admin Settings page, nav/stale-comment sweep, Vercel cron throttled to daily for Hobby unblock | shipped 2026-05-06 (8 commits, all deployed Ready) | `07-05-SUMMARY.md` |
-| 07-06 | Supabase advisor sweep — triage 32 advisor entries; Tier 1 fixes (3 function-search-path locks + 2 covering indexes for FKs) drafted in `07-06-DRAFT-MIGRATION.sql`; Tier 2 (multiple-permissive-policy consolidation) deferred; Tier 3 (auth_rls_initplan × 19) confirmed stale-cache; Tier 4 (SECURITY DEFINER × 11) accepted by design; auth_leaked_password_protection captured as user_setup dashboard toggle | spec only — migration drafted but not applied | `07-06-PLAN.md` |
+| 07-06 | Supabase advisor sweep — Tier 1 (3 function-search-path locks + 2 covering FK indexes) shipped via migration 00019; Tier 2 (multiple-permissive-policy consolidation × 14) deferred to its own plan; Tier 3 (auth_rls_initplan × 19) confirmed stale advisor cache; Tier 4 (SECURITY DEFINER × 11) accepted by design; auth_leaked_password_protection still a single dashboard toggle | shipped 2026-05-06 (migration applied, advisors verified clear for Tier 1) | `07-06-SUMMARY.md` |
 
 ## Phase 07 resume bookmark (2026-05-05 — updated post-07-03 scaffold)
 
@@ -368,7 +368,7 @@ Phase 6 closed every Phase 1–5 carry-over either in code or via explicit defer
 
 - **Conversion-rate comparator window** (week-over-week vs month-over-month) — RESEARCH q4 still open.
 - ~~**HQ sidebar stubs → real surfaces** (`/countries`, `/service-mix`, `/settings`).~~ **Closed in plan 07-05 (2026-05-06)** — three HQ surfaces + country-admin Settings now real read-only pages.
-- **Supabase advisor low-priority entries:** triaged in plan 07-06 (2026-05-06). Tier 1 fixes (3× `function_search_path_mutable` + 2× covering indexes for unindexed FKs) drafted at `07-06-DRAFT-MIGRATION.sql` — apply when ready. `auth_leaked_password_protection` is a single dashboard toggle (captured as 07-06 `user_setup`). `multiple_permissive_policies` × 14 consolidation deferred to its own plan with cross-tenant test gating. `auth_rls_initplan` × 19 confirmed stale advisor cache (all policies already use `(SELECT auth.x())` form). `authenticated_security_definer_function_executable` × 11 accepted by design (Phase 2-5 architectural pattern).
+- **Supabase advisor low-priority entries:** triaged in plan 07-06 (2026-05-06). Tier 1 fixes (3× `function_search_path_mutable` + 2× covering indexes for unindexed FKs) **shipped** via migration `00019_advisor_sweep`. `auth_leaked_password_protection` still requires the dashboard toggle (captured as 07-06 `user_setup`). `multiple_permissive_policies` × 14 consolidation deferred to its own plan with cross-tenant test gating. `auth_rls_initplan` × 19 confirmed stale advisor cache (all policies already use `(SELECT auth.x())` form). `authenticated_security_definer_function_executable` × 11 accepted by design (Phase 2-5 architectural pattern).
 - **Pro-tier Supabase upgrade** — required for PITR (RPO < 24 h) and branches (cleaner restore-drill flavour). Cost-benefit decision lands when pilot expands beyond a single country. Also gates restoring the SLA cron from daily back to per-minute (throttled in plan 07-05 to unblock Hobby-plan deploys).
 - **`leads_by_service_group` cap to top-N**, sortable headers on the country leaderboard, P75 series toggle on the speed-to-lead trend.
 - ~~**Per-minute Vercel cron cost** — switch to `*/2 * * * *` if the steady-state shows up on the bill.~~ **Forced to daily in plan 07-05** by the Hobby-plan limit; revisit cadence on Pro upgrade.

@@ -89,6 +89,11 @@ export default async function CountryAdminOverviewPage({
   const avgResponseOnTarget =
     avgResponseSeconds !== null && avgResponseSeconds <= 300;
 
+  // Distinguish "awaiting first lead" from "off-target." When the country has
+  // zero lifetime leads, every card downstream renders "—" / 0 — which reads
+  // as broken. The banner says it isn't: nothing has been ingested yet.
+  const isEmpty = (todayStats?.total_leads ?? 0) === 0;
+
   return (
     <CountryAdminShell
       countrySlug={country}
@@ -108,6 +113,27 @@ export default async function CountryAdminOverviewPage({
           </p>
           <RangePicker rangeKey={range.key} rangeLabel={range.label} />
         </div>
+        {isEmpty && (
+          <div
+            className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 flex items-start gap-3"
+            data-testid="country-empty-banner"
+          >
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0"
+              aria-hidden
+            />
+            <div className="text-sm leading-relaxed">
+              <p className="font-semibold text-slate-700">
+                Awaiting first lead for {name}
+              </p>
+              <p className="text-slate-500 mt-0.5">
+                Cards below will populate as soon as leads start flowing in
+                from the form funnel. The dashboard, RLS, and audit log are
+                already wired and listening.
+              </p>
+            </div>
+          </div>
+        )}
         <KpiStrip
           countryCode={countryCode}
           today={todayStats}

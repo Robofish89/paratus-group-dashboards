@@ -186,17 +186,24 @@ export async function getAuditLog(
  */
 export async function getRecentGroupActivity(
   limit: number = 10,
+  countryCode: string | null = null,
 ): Promise<GroupActivityRow[]> {
   const cap = Math.max(1, Math.min(Math.floor(limit), 25));
   const supabase = await createClient();
 
-  const { data: rows, error } = await supabase
+  let auditQuery = supabase
     .from('audit_log')
     .select(
       'id, created_at, action, target_type, target_id, country_code, actor_id, actor_role',
     )
     .order('created_at', { ascending: false })
     .limit(cap);
+
+  if (countryCode) {
+    auditQuery = auditQuery.eq('country_code', countryCode);
+  }
+
+  const { data: rows, error } = await auditQuery;
 
   if (error) {
     throw new Error(`getRecentGroupActivity audit failed: ${error.message}`);

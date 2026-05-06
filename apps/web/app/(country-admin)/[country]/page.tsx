@@ -5,6 +5,7 @@ import {
   getCountryStatsInRange,
   getCountryTodayStats,
   getLeadsByServiceToday,
+  getRecentGroupActivity,
   getSpeedToLeadSeries,
   getStatusPipelineToday,
 } from "@repo/supabase/dal";
@@ -22,6 +23,7 @@ import { StatusPipelineCard } from "./_components/status-pipeline-card";
 import { AgentPerformanceTable } from "./_components/agent-performance-table";
 import { SpeedToLeadCard } from "./_components/speed-to-lead-card";
 import { RangePicker } from "./_components/range-picker";
+import { CountryRecentActivityCard } from "./_components/recent-activity-card";
 
 /**
  * Plan-04-02 surface — country admin overview. Reads `[country]` from the
@@ -68,6 +70,7 @@ export default async function CountryAdminOverviewPage({
     speedToLeadToday,
     agentPerformance,
     speedToLeadSeries,
+    recentActivity,
   ] = await Promise.all([
     getCountryTodayStats(countryCode),
     getCountryStatsInRange(countryCode, fromIso, toIso),
@@ -76,6 +79,7 @@ export default async function CountryAdminOverviewPage({
     getCountrySpeedToLeadToday(countryCode),
     getAgentPerformanceInRange(countryCode, fromIso, toIso),
     getSpeedToLeadSeries(countryCode, fromIso, toIso),
+    getRecentGroupActivity(5, countryCode),
   ]);
 
   const avgResponseSeconds = speedToLeadToday?.avg_response_seconds ?? null;
@@ -154,6 +158,11 @@ export default async function CountryAdminOverviewPage({
             series={speedToLeadSeries}
           />
         </div>
+
+        <CountryRecentActivityCard
+          rows={recentActivity}
+          countrySlug={country}
+        />
       </div>
     </CountryAdminShell>
   );

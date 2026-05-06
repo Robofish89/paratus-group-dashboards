@@ -61,6 +61,17 @@ export async function GET(req: NextRequest): Promise<Response> {
   const status = url.searchParams.get("status");
   const service = url.searchParams.get("service");
   const q = url.searchParams.get("q");
+  // Country scoping: country admins are RLS-pinned to their own country, but
+  // HQ admins see every country at the RLS layer. The export must respect the
+  // URL country the admin is viewing (passed by the leads page) — otherwise
+  // an HQ admin's "Export CSV" would dump every country's leads regardless
+  // of which country drill-in they're on. Country admins can also pass it,
+  // but RLS scopes them anyway so it's belt-and-braces.
+  const countryRaw = url.searchParams.get("country");
+  const countryFilter =
+    countryRaw && /^[A-Z]{2}$/.test(countryRaw.toUpperCase())
+      ? countryRaw.toUpperCase()
+      : null;
 
   if (status && !ALLOWED_STATUSES.has(status)) {
     return NextResponse.json(
@@ -82,6 +93,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     .order("created_at", { ascending: false })
     .limit(ROW_CAP);
 
+  if (countryFilter) query = query.eq("country_code", countryFilter);
   if (from) query = query.gte("created_at", from);
   if (to) query = query.lt("created_at", to);
   if (status)
@@ -111,8 +123,10 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const csv = Papa.unparse(rows);
 
-  // Filename uses the caller's country (or "all" for HQ).
-  const country = claims.country_code ?? "all";
+  // Filename prefers the explicit country filter (HQ drilling into a country),
+  // falls back to the caller's claim country (country admin), then "all" if
+  // neither is present.
+  const country = countryFilter ?? claims.country_code ?? "all";
   const filenameRange = `${from ?? "all"}-to-${to ?? "now"}`;
   const filename = `leads-${country}-${filenameRange}.csv`;
 

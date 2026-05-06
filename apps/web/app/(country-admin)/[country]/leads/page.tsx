@@ -87,12 +87,18 @@ export default async function CountryAdminLeadsPage({
   const supabase = await createClient();
 
   // Fetch one extra row to detect "has more" without a second count round-trip.
+  // Country scoping: country admins are RLS-pinned to their own country, but
+  // HQ admins (allow-listed in requireRole above) see every country at the
+  // RLS layer. Without this explicit filter, an HQ admin browsing
+  // /<country>/leads would see every country's rows in the table — defeating
+  // the per-country drill-in. Apply the filter unconditionally.
   let query = supabase
     .from("leads")
     .select(
       "id, name, email, phone, status, form_slug, assigned_to, country_code, created_at",
       { count: "exact" },
     )
+    .eq("country_code", countryCode)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(PAGE_SIZE + 1);
@@ -181,14 +187,18 @@ export default async function CountryAdminLeadsPage({
       : null;
 
   // Build the export-CSV link with the same active filters so admins get a
-  // file matching what they're looking at.
+  // file matching what they're looking at. The `country` param scopes the
+  // export to the URL's country — necessary for HQ admins who would
+  // otherwise export every country's leads via the cookie-authed (RLS-open)
+  // export route.
   const exportParams = new URLSearchParams();
+  exportParams.set("country", countryCode);
   if (status) exportParams.set("status", status);
   if (service) exportParams.set("service", service);
   if (from) exportParams.set("from", from);
   if (to) exportParams.set("to", to);
   if (q) exportParams.set("q", q);
-  const exportHref = `/api/country-admin/export-leads${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+  const exportHref = `/api/country-admin/export-leads?${exportParams.toString()}`;
 
   return (
     <CountryAdminShell

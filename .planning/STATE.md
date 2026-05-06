@@ -14,12 +14,12 @@ Tracks where the GSD pipeline is in the roadmap. Updated at the end of every pla
 
 | Phase | Status | Last touched |
 |-------|--------|--------------|
-| 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete`) | 2026-04-28 |
-| 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` staged — push pending) | 2026-05-01 |
-| 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` staged — push pending) | 2026-05-02 |
-| 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` staged — push pending) | 2026-05-04 |
-| 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` staged — push pending) | 2026-05-04 |
-| 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` staged — push pending) | 2026-05-05 |
+| 01-foundation | shipped (validated 2026-04-28, tag `phase-1-complete` on origin) | 2026-04-28 |
+| 02-data-model-ingestion | shipped (validated 2026-05-01, tag `phase-2-complete` on origin) | 2026-05-01 |
+| 03-sales-rep-queue | shipped (validated 2026-05-02, tag `phase-3-complete` on origin) | 2026-05-02 |
+| 04-country-admin-dashboard | shipped (validated 2026-05-04, tag `phase-4-complete` on origin) | 2026-05-04 |
+| 05-hq-overview | shipped (validated 2026-05-04, tag `phase-5-complete` on origin) | 2026-05-04 |
+| 06-production-hardening | shipped (validated 2026-05-05, tag `phase-6-complete` on origin) | 2026-05-05 |
 | 07-rollout | in progress (plans 07-01 + 07-02 + 07-05 shipped; 07-03 scaffold-only awaiting William) | 2026-05-06 |
 
 ## Phase 02 plan tracker
@@ -347,7 +347,7 @@ Phase rollup: `06-production-hardening/PHASE-SUMMARY.md`.
 
 ## Working tree status at last update
 
-All five Phase 6 plans (06-01 → 06-05) shipped on `main`. The 48 h pilot soak passed and the user signed off "approved — phase 6 done" on 2026-05-05. `phase-6-complete` tag staged locally; push pending explicit user approval (same posture as `phase-2`/`phase-3`/`phase-4`/`phase-5`).
+All five Phase 6 plans (06-01 → 06-05) shipped on `main`. The 48 h pilot soak passed and the user signed off "approved — phase 6 done" on 2026-05-05. `phase-6-complete` tag is on origin alongside `phase-1`–`phase-5` (verified 2026-05-06).
 
 ## Next move
 

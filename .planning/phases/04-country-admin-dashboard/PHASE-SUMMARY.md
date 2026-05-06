@@ -2,7 +2,7 @@
 
 **Status:** shipped
 **Validated:** 2026-05-04
-**Tag:** `phase-4-complete` (staged locally, push pending)
+**Tag:** `phase-4-complete` (on origin)
 
 ## What shipped
 

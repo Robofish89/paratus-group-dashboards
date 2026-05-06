@@ -2,7 +2,7 @@
 
 **Status:** shipped
 **Validated:** 2026-05-05 (48 h pilot soak passed; user signed off "approved — phase 6 done")
-**Tag:** `phase-6-complete` (staged locally, push pending)
+**Tag:** `phase-6-complete` (on origin)
 
 ## What shipped
 

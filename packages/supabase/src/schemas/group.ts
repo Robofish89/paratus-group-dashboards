@@ -87,6 +87,26 @@ export const groupSpeedToLeadDaySchema = z.object({
   p75_seconds: z.number(),
 });
 
+/**
+ * One row per country in the HQ Countries directory. Spans all 15 markets
+ * (12 active + 3 coming-soon) — coming-soon rows have null performance
+ * metrics and zero agent counts. Status drives which variant the card
+ * renders.
+ */
+export const countryDirectoryRowSchema = z.object({
+  country_code: z.string(),
+  country_name: z.string(),
+  timezone: z.string(),
+  status: z.enum(['active', 'coming_soon']),
+  total_leads: z.number().nullable(),
+  new_today: z.number().nullable(),
+  contacted_pct: z.number().nullable(),
+  converted_pct: z.number().nullable(),
+  avg_response_seconds: z.number().nullable(),
+  agent_count: z.number(),
+  country_admin_count: z.number(),
+});
+
 // ─── Inferred TS types ─────────────────────────────────────────────────────
 
 export type GroupTodayStats = z.infer<typeof groupTodayStatsSchema>;
@@ -96,6 +116,7 @@ export type GroupSpeedToLeadDay = z.infer<typeof groupSpeedToLeadDaySchema>;
 export type GroupSpeedToLeadSeriesInput = z.infer<
   typeof groupSpeedToLeadSeriesInput
 >;
+export type CountryDirectoryRow = z.infer<typeof countryDirectoryRowSchema>;
 
 // ─── Status bucket helper ──────────────────────────────────────────────────
 

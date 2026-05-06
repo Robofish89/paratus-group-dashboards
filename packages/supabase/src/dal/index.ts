@@ -65,6 +65,7 @@ export {
   getCountryPerformanceToday,
   getLeadsByServiceGroup,
   getGroupSpeedToLeadSeries,
+  getCountriesDirectory,
   computeResponseStatus,
   RESPONSE_STATUS_THRESHOLDS,
 } from './group';
@@ -74,6 +75,7 @@ export type {
   LeadsByServiceGroupRow,
   GroupSpeedToLeadDay,
   ResponseStatus,
+  CountryDirectoryRow,
 } from './group';
 
 export { getOpenBreaches, markBreachAlerted } from './sla';

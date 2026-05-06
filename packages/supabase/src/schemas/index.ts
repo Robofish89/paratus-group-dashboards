@@ -50,6 +50,7 @@ export {
   leadsByServiceGroupRowSchema,
   groupSpeedToLeadDaySchema,
   groupSpeedToLeadSeriesInput,
+  countryDirectoryRowSchema,
   computeResponseStatus,
   RESPONSE_STATUS_THRESHOLDS,
 } from './group';
@@ -60,4 +61,5 @@ export type {
   GroupSpeedToLeadDay,
   GroupSpeedToLeadSeriesInput,
   ResponseStatus,
+  CountryDirectoryRow,
 } from './group';

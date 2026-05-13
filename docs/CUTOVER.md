@@ -3,7 +3,7 @@
 **Audience:** William @ Brainstorm Projects + DigimountAI on-call.
 **Companion docs:** [`RUNBOOK.md`](./RUNBOOK.md) for incidents, [`BACKUP_RESTORE.md`](./BACKUP_RESTORE.md) for restore drills, [`onboarding/`](./onboarding/) for role one-pagers.
 
-> **Subdomain note:** every country block below hardcodes the redirect URL `https://paratus-group-dashboards.vercel.app/auth/accept-invite`. Once Paratus's custom subdomain is attached, find-replace all 12 occurrences to `https://<subdomain>/auth/accept-invite` and update the Supabase auth allowed-redirect list to match before running any country's provisioning script.
+> **Redirect URL:** the production redirect target is `https://dashboards.paratus.africa/auth/accept-invite`. If it ever changes, find-replace all 12 occurrences here and update the Supabase auth allowed-redirect list to match before the next country runs.
 
 ## How to use this checklist
 
@@ -17,7 +17,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=MZ` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/mz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/mz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -31,7 +31,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=AO` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ao/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ao`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -45,7 +45,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=BW` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/bw/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/bw`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -59,7 +59,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=CD` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/cd/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/cd`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -73,7 +73,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=SZ` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/sz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/sz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -87,7 +87,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=KE` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ke/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ke`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -101,7 +101,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=NA` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/na/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/na`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -115,7 +115,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=RW` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/rw/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/rw`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -129,7 +129,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=ZA` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/za/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/za`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -143,7 +143,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=TZ` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/tz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/tz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -157,7 +157,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=UG` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ug/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ug`, KPI tiles render zeros, leaderboard shows the agents we provisioned
@@ -171,7 +171,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 
 - [ ] Contact list confirmed by William (agents + admin emails captured in `rollout-contacts.csv` row block)
 - [ ] `rollout-contacts.csv` updated with this country's rows (do NOT commit real PII to git — file is gitignored)
-- [ ] Auth allowed-redirect URL list in Supabase includes `https://paratus-group-dashboards.vercel.app/auth/accept-invite`
+- [ ] Auth allowed-redirect URL list in Supabase includes `https://dashboards.paratus.africa/auth/accept-invite`
 - [ ] `npx tsx apps/web/scripts/provision-users.ts --country=ZM` ran cleanly — Vercel/CLI logs show `event:'user_provisioned'` × N, `event:'provision_summary'` with `failed=0`
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/zm/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/zm`, KPI tiles render zeros, leaderboard shows the agents we provisioned

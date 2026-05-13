@@ -37,7 +37,7 @@ No. Hit Overview in the sidebar to come back. HQ admins can view every country a
 
 1. Use the in-app **?** link (bottom-left of the sidebar) to re-open this page.
 2. Ping William @ Brainstorm Projects (`william@brainstormprojects.co`) for product questions or country activations.
-3. DigimountAI support (`support@digimountai.com`) for outages, bugs, or anything in [`docs/RUNBOOK.md`](../RUNBOOK.md).
+3. DigimountAI (`gerhard@digimountai.com`) for outages, bugs, or anything in [`docs/RUNBOOK.md`](../RUNBOOK.md).
 4. For backup or restore questions, see [`docs/BACKUP_RESTORE.md`](../BACKUP_RESTORE.md).
 
 ## Walkthroughs

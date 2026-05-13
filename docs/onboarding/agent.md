@@ -25,7 +25,7 @@ A lead lands in Follow-ups when you press No answer or Callback. It stays there 
 The four tiles use the date range selector. The tabs always show your live queue (today + outstanding). If you set the range to "This week" the tiles widen, but the tabs don't move.
 
 **A lead's phone number is wrong. What do I do?**
-Mark the lead as **Lost** and pick "Bad data" as the reason. The country admin sees that in the Lost reasons breakdown and chases the form-side fix.
+Mark the lead as **Lost** and pick "Wrong number" as the reason. The country admin sees that in the Lost reasons breakdown and chases the form-side fix.
 
 **I called and nobody picked up. Should I press Lost?**
 No — press **No answer**. The lead moves to Follow-ups. After three No-answer attempts the lead stays in Follow-ups but is flagged so the admin can decide whether to retire it.
@@ -40,7 +40,7 @@ The first response is overdue (over 5 minutes since the form landed). Take it ne
 
 1. Use the in-app **?** link (bottom-left of the sidebar) to re-open this page.
 2. Ping your country admin — they can reassign, audit a lead, or escalate.
-3. Country admin escalates to William @ Brainstorm Projects (`william@brainstormprojects.co`) for product questions, and to DigimountAI support (`support@digimountai.com`) for outages or bugs.
+3. Country admin escalates to William @ Brainstorm Projects (`william@brainstormprojects.co`) for product questions, and to DigimountAI (`gerhard@digimountai.com`) for outages or bugs.
 4. If the dashboard is fully down, your country admin opens [`docs/RUNBOOK.md`](../RUNBOOK.md) and follows section 3.
 
 ## Walkthroughs

@@ -19,7 +19,7 @@ The Overview is your daily readout for one country. The KPI strip across the top
 The KPI tile follows the date range picker; the funnel is always today. Set the range to Today and they will agree.
 
 **Can I reassign a lead to a rep in another country?**
-No. The Reassign dialog only lists reps in this country. Cross-country moves are HQ admin work — escalate via email and they handle it from the HQ overview.
+No. The Reassign dialog only lists reps in this country. Cross-country moves are HQ admin work — ping William (`william@brainstormprojects.co`) and they handle it from the HQ overview.
 
 **The Agents page shows a rep with zero leads. Are they broken?**
 They might be on leave, or the round-robin hasn't given them a lead today. Check the Audit page (filter by their name) — if they had leads earlier in the week and have been quiet today, that's a coverage problem worth raising with William.
@@ -40,7 +40,7 @@ No undo. Use the Audit page to record what they say happened and decide whether 
 
 1. Use the in-app **?** link (bottom-left of the sidebar) to re-open this page.
 2. Ping William @ Brainstorm Projects (`william@brainstormprojects.co`) for product questions, role changes, or new-rep onboarding.
-3. DigimountAI support (`support@digimountai.com`) for outages or bugs.
+3. DigimountAI (`gerhard@digimountai.com`) for outages or bugs.
 4. For incidents, follow [`docs/RUNBOOK.md`](../RUNBOOK.md) section 3.
 
 ## Walkthroughs

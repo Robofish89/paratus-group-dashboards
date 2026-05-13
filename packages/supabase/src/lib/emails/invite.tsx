@@ -106,8 +106,12 @@ export function InviteEmail(props: InviteEmailProps): React.ReactElement {
         <Container style={container}>
           <Heading style={heading}>Welcome, {fullName}</Heading>
           <Text style={body}>
-            Paratus Group has set up a new sales dashboard for you. Click below
-            to set your password and log in.
+            Paratus Group has added you to the new sales dashboards. Set your
+            password below to sign in.
+          </Text>
+          <Text style={body}>
+            You&apos;re receiving this because Paratus Group has set you up as
+            a {roleLabel} on the new dashboards.
           </Text>
 
           <Section>
@@ -129,8 +133,8 @@ export function InviteEmail(props: InviteEmailProps): React.ReactElement {
 
           <Hr style={{ borderColor: '#e2e8f0', margin: '24px 0 12px' }} />
           <Text style={footer}>
-            This link expires in 24 hours. If it expires, contact{' '}
-            {supportEmail}.
+            This link expires in 24 hours. If it does, email {supportEmail} for
+            a fresh one.
           </Text>
         </Container>
       </Body>

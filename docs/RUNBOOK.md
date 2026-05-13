@@ -14,7 +14,7 @@ the next thing.
 
 | Role | Name | Contact | When to page |
 |------|------|---------|---------------|
-| Primary on-call | DigimountAI | recoverykingsco@gmail.com | Any production incident |
+| Primary on-call | DigimountAI | gerhard@digimountai.com | Any production incident |
 | Escalation | William @ Brainstorm Projects | (William to provide) | Multi-hour outage, customer-facing miscount |
 | Ingestion-side | Paratus form admin | (William to introduce before pilot) | Webhook signature failures, form-side bugs |
 

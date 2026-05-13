@@ -3,6 +3,8 @@
 **Audience:** William @ Brainstorm Projects + DigimountAI on-call.
 **Companion docs:** [`RUNBOOK.md`](./RUNBOOK.md) for incidents, [`BACKUP_RESTORE.md`](./BACKUP_RESTORE.md) for restore drills, [`onboarding/`](./onboarding/) for role one-pagers.
 
+> **Subdomain note:** every country block below hardcodes the redirect URL `https://paratus-group-dashboards.vercel.app/auth/accept-invite`. Once Paratus's custom subdomain is attached, find-replace all 12 occurrences to `https://<subdomain>/auth/accept-invite` and update the Supabase auth allowed-redirect list to match before running any country's provisioning script.
+
 ## How to use this checklist
 
 The order is fixed: **provision users → smoke-test from agent + admin seats → flip the form-side webhook → 24–48 h soak → William sign-off → next country.** Out-of-order steps cause the round-robin-to-test-user pitfall — leads flow to whichever seed account is the only `agent` row, then disappear into the wrong queue.
@@ -20,7 +22,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/mz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/mz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/mz/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -34,7 +36,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ao/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ao`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/ao/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -48,7 +50,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/bw/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/bw`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/bw/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -62,7 +64,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/cd/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/cd`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/cd/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -76,7 +78,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/sz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/sz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/sz/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -90,7 +92,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ke/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ke`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/ke/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -104,7 +106,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/na/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/na`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/na/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -118,7 +120,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/rw/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/rw`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/rw/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -132,7 +134,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/za/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/za`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/za/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -146,7 +148,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/tz/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/tz`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/tz/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -160,7 +162,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/ug/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/ug`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/ug/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**
@@ -174,7 +176,7 @@ Per-country sign-off lives at the bottom of each section as a dated William sign
 - [ ] Smoke test from agent seat: log in via invite email, set password, land on `/zm/queue`, see (zero or seeded) leads
 - [ ] Smoke test from country admin seat: log in, land on `/zm`, KPI tiles render zeros, leaderboard shows the agents we provisioned
 - [ ] Form-side ingestion flipped to production for this country — Path 1 (direct Paratus webhook to `/api/leads/ingest` with HMAC) or Path 2 (n8n bridge → same endpoint), per the per-country decision
-- [ ] First real lead observed in `agent_today_stats.to_call_count` within 30 min of the form-side flip
+- [ ] First real lead observed in `agent_today_stats.to_call_count` — either organic, or by submitting a test through the Paratus form (within 30 min of the flip)
 - [ ] 24 h soak: zero `event:'audit_write_failed'` lines, zero 429s on `/api/leads/ingest` from production traffic, zero P1/P2 in Sentry, UptimeRobot uptime ≥ 99.9 %
 - [ ] Country admin opens the audit log at `/zm/audit` and sees the first lead's lifecycle (assign + first contact)
 - [ ] **William sign-off — date / signature: ____________**

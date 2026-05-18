@@ -6,8 +6,14 @@
  * 12 active countries route to live dashboards. The 3 coming-soon countries
  * (LS Lesotho, MW Malawi, ZW Zimbabwe) are seeded in the data model but their
  * dashboard routes stay 404 until Paratus signals activation.
+ *
+ * `hq` is the group pseudo-tenant (countries.code = 'HQ', migration 00020) for
+ * "Paratus Africa Group (Head Office)" leads. Only hq_admin can reach /hq —
+ * requireCountry() early-returns for hq_admin and country_admins are RLS-pinned
+ * to their own country, so listing it here just lets the drill-through resolve.
  */
 export const ACTIVE_COUNTRIES = {
+  hq: "Paratus Group (HQ)",
   ao: "Angola",
   bw: "Botswana",
   cd: "DRC",
